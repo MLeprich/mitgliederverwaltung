@@ -20,6 +20,7 @@
             <h1 class="h3">
                 <i class="fas fa-user me-2"></i>
                 {{ member.full_name }}
+                <span class="badge bg-primary ms-2">{{ member.get_member_type_display_with_icon }}</span>
                 {% if not member.is_active %}
                     <span class="badge bg-secondary ms-2">Inaktiv</span>
                 {% endif %}
@@ -73,6 +74,26 @@
                                 <td>{{ member.personnel_number|default:"-" }}</td>
                             </tr>
                         </table>
+                        
+                        <h6 class="text-muted mb-3 mt-4">Mitarbeiter-Informationen</h6>
+                        <table class="table table-borderless">
+                            <tr>
+                                <td class="fw-bold">Typ:</td>
+                                <td>{{ member.get_member_type_display_with_icon }}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">Ausweisnummer:</td>
+                                <td>
+                                    <span class="badge bg-info fs-6">{{ member.card_number }}</span>
+                                </td>
+                            </tr>
+                            {% if member.card_number_prefix %}
+                            <tr>
+                                <td class="fw-bold">Präfix:</td>
+                                <td>{{ member.card_number_prefix }}</td>
+                            </tr>
+                            {% endif %}
+                        </table>
                     </div>
                     
                     <div class="col-md-6">
@@ -84,7 +105,12 @@
                             </tr>
                             <tr>
                                 <td class="fw-bold">Gültig bis:</td>
-                                <td>{{ member.valid_until|date:"d.m.Y" }}</td>
+                                <td>
+                                    {{ member.valid_until|date:"d.m.Y" }}
+                                    {% if member.manual_validity %}
+                                        <small class="text-muted">(manuell gesetzt)</small>
+                                    {% endif %}
+                                </td>
                             </tr>
                             <tr>
                                 <td class="fw-bold">Status:</td>
@@ -92,9 +118,19 @@
                                     {% if member.is_card_expired %}
                                         <span class="badge bg-danger">Abgelaufen</span>
                                     {% elif member.expires_soon %}
-                                        <span class="badge bg-warning">Läuft bald ab</span>
+                                        <span class="badge bg-warning text-dark">Läuft bald ab</span>
                                     {% else %}
                                         <span class="badge bg-success">Gültig</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">Gültigkeitsmodus:</td>
+                                <td>
+                                    {% if member.manual_validity %}
+                                        <span class="badge bg-info">Manuell</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Automatisch</span>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -164,6 +200,56 @@
             </div>
         </div>
 
+        <!-- Ausweis-Informationen -->
+        <div class="card shadow mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-id-card me-2"></i>Ausweis-Info
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    <div class="card-number-display">
+                        <h3 class="text-primary mb-0">{{ member.card_number }}</h3>
+                        <small class="text-muted">Ausweisnummer</small>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="row text-center">
+                    <div class="col-6">
+                        <strong>Ausgestellt</strong><br>
+                        <small>{{ member.issued_date|date:"d.m.Y" }}</small>
+                    </div>
+                    <div class="col-6">
+                        <strong>Gültig bis</strong><br>
+                        <small>{{ member.valid_until|date:"d.m.Y" }}</small>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="text-center">
+                    <div class="status-indicator">
+                        {% if member.is_card_expired %}
+                            <span class="badge bg-danger p-2">
+                                <i class="fas fa-times-circle me-1"></i>Abgelaufen
+                            </span>
+                        {% elif member.expires_soon %}
+                            <span class="badge bg-warning text-dark p-2">
+                                <i class="fas fa-exclamation-triangle me-1"></i>Läuft bald ab
+                            </span>
+                        {% else %}
+                            <span class="badge bg-success p-2">
+                                <i class="fas fa-check-circle me-1"></i>Gültig
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Schnellaktionen -->
         <div class="card shadow">
             <div class="card-header">
@@ -208,7 +294,7 @@
 {% block extra_js %}
 <script>
 function renewCard() {
-    if (confirm('Ausweis für {{ member.full_name }} um 5 Jahre verlängern?')) {
+    if (confirm('Ausweis für {{ member.full_name }} verlängern?')) {
         // Hier könnte eine AJAX-Anfrage implementiert werden
         showAlert('Funktion wird in einer zukünftigen Version implementiert.', 'info');
     }
@@ -217,5 +303,61 @@ function renewCard() {
 function printCard() {
     showAlert('Druckfunktion wird mit Cardpresso-Integration implementiert.', 'info');
 }
+
+function confirmDelete(memberName) {
+    return confirm('Möchten Sie das Mitglied "' + memberName + '" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.');
+}
+
+function showAlert(message, type) {
+    // Einfache Alert-Funktion - kann später durch Toast-Nachrichten ersetzt werden
+    const alertClass = type === 'success' ? 'alert-success' : 
+                      type === 'warning' ? 'alert-warning' : 
+                      type === 'error' ? 'alert-danger' : 'alert-info';
+    
+    const alertHtml = `
+        <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    // Alert am Anfang der Seite einfügen
+    const container = document.querySelector('main.container');
+    container.insertAdjacentHTML('afterbegin', alertHtml);
+    
+    // Nach 5 Sekunden automatisch ausblenden
+    setTimeout(() => {
+        const alert = container.querySelector('.alert');
+        if (alert) {
+            alert.remove();
+        }
+    }, 5000);
+}
 </script>
+
+<style>
+.card-number-display {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.card-number-display h3 {
+    color: white !important;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
+}
+
+.status-indicator .badge {
+    font-size: 0.9rem;
+}
+
+.profile-image-preview {
+    max-width: 200px;
+    max-height: 250px;
+    border-radius: 8px;
+}
+</style>
 {% endblock %}

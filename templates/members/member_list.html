@@ -1,68 +1,324 @@
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Mitglieder - Mitgliederverwaltung{% endblock %}
+{% block title %}Mitgliederliste - Mitgliederverwaltung{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'members:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item active">Mitglieder</li>
+    </ol>
+</nav>
+{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1 class="h3">
-                <i class="fas fa-users me-2"></i>Mitglieder
-                <small class="text-muted">({{ members.count }} Einträge)</small>
+                <i class="fas fa-users me-2"></i>
+                Mitgliederliste
+                <small class="text-muted">({{ object_list.paginator.count }} Mitglieder)</small>
             </h1>
-            <a href="/admin/members/member/add/" class="btn btn-primary">
+            <a href="{% url 'members:member_add' %}" class="btn btn-primary">
                 <i class="fas fa-user-plus me-2"></i>Neues Mitglied
             </a>
         </div>
     </div>
 </div>
 
-<div class="row">
+<!-- Filter und Suche -->
+<div class="row mb-4">
     <div class="col-12">
         <div class="card">
             <div class="card-body">
-                {% if members %}
+                <form method="get" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="search" class="form-label">Suche</label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="search" 
+                               name="search" 
+                               value="{{ request.GET.search }}"
+                               placeholder="Name, Personalnummer oder Ausweisnummer...">
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label for="member_type" class="form-label">Typ</label>
+                        <select class="form-select" id="member_type" name="member_type">
+                            <option value="">Alle Typen</option>
+                            <option value="BF" {% if request.GET.member_type == 'BF' %}selected{% endif %}>🚒 Berufsfeuerwehr</option>
+                            <option value="FF" {% if request.GET.member_type == 'FF' %}selected{% endif %}>🔥 Freiwillige Feuerwehr</option>
+                            <option value="JF" {% if request.GET.member_type == 'JF' %}selected{% endif %}>👦 Jugendfeuerwehr</option>
+                            <option value="STADT" {% if request.GET.member_type == 'STADT' %}selected{% endif %}>🏛️ Stadt</option>
+                            <option value="EXTERN" {% if request.GET.member_type == 'EXTERN' %}selected{% endif %}>🏢 Extern</option>
+                            <option value="PRAKTIKANT" {% if request.GET.member_type == 'PRAKTIKANT' %}selected{% endif %}>🎓 Praktikant</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label for="status" class="form-label">Status</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="">Alle Status</option>
+                            <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Aktiv</option>
+                            <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inaktiv</option>
+                            <option value="expired" {% if request.GET.status == 'expired' %}selected{% endif %}>Abgelaufen</option>
+                            <option value="expiring" {% if request.GET.status == 'expiring' %}selected{% endif %}>Läuft bald ab</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <label for="sort" class="form-label">Sortierung</label>
+                        <select class="form-select" id="sort" name="sort">
+                            <option value="name" {% if request.GET.sort == 'name' or not request.GET.sort %}selected{% endif %}>Name</option>
+                            <option value="created" {% if request.GET.sort == 'created' %}selected{% endif %}>Erstellt</option>
+                            <option value="valid_until" {% if request.GET.sort == 'valid_until' %}selected{% endif %}>Gültig bis</option>
+                            <option value="card_number" {% if request.GET.sort == 'card_number' %}selected{% endif %}>Ausweisnummer</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-outline-primary me-2">
+                            <i class="fas fa-search"></i>
+                        </button>
+                        <a href="{% url 'members:member_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i>
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Mitgliedertabelle -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Mitglieder</h5>
+                <div class="btn-group btn-group-sm">
+                    <a href="{% url 'members:export_data' %}?format=csv{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.member_type %}&member_type={{ request.GET.member_type }}{% endif %}" 
+                       class="btn btn-outline-success">
+                        <i class="fas fa-file-csv me-1"></i>CSV
+                    </a>
+                    <a href="{% url 'members:export_data' %}?format=excel{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.member_type %}&member_type={{ request.GET.member_type }}{% endif %}" 
+                       class="btn btn-outline-success">
+                        <i class="fas fa-file-excel me-1"></i>Excel
+                    </a>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                {% if object_list %}
                 <div class="table-responsive">
-                    <table class="table table-hover">
+                    <table class="table table-hover mb-0">
                         <thead class="table-light">
                             <tr>
+                                <th style="width: 60px;">Bild</th>
                                 <th>Name</th>
+                                <th>Typ</th>
+                                <th>Ausweisnummer</th>
                                 <th>Personalnummer</th>
-                                <th>Geburtsdatum</th>
-                                <th>Ausgestellt</th>
                                 <th>Gültig bis</th>
-                                <th>Aktionen</th>
+                                <th>Status</th>
+                                <th style="width: 120px;">Aktionen</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for member in members %}
+                            {% for member in object_list %}
                             <tr>
-                                <td><strong>{{ member.full_name }}</strong></td>
-                                <td>{{ member.personnel_number|default:"-" }}</td>
-                                <td>{{ member.birth_date|date:"d.m.Y" }}</td>
-                                <td>{{ member.issued_date|date:"d.m.Y" }}</td>
-                                <td>{{ member.valid_until|date:"d.m.Y" }}</td>
+                                <td class="text-center">
+                                    {% if member.profile_picture %}
+                                        <img src="{{ member.profile_picture.url }}" 
+                                             class="rounded border" 
+                                             style="width: 40px; height: 50px; object-fit: cover;"
+                                             alt="{{ member.full_name }}">
+                                    {% else %}
+                                        <div class="bg-light border rounded d-flex align-items-center justify-content-center"
+                                             style="width: 40px; height: 50px;">
+                                            <i class="fas fa-user text-muted"></i>
+                                        </div>
+                                    {% endif %}
+                                </td>
                                 <td>
-                                    <a href="/admin/members/member/{{ member.id }}/change/" class="btn btn-sm btn-outline-primary">
-                                        <i class="fas fa-edit"></i> Bearbeiten
-                                    </a>
+                                    <strong>{{ member.full_name }}</strong><br>
+                                    <small class="text-muted">{{ member.age }} Jahre</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark">
+                                        {{ member.get_member_type_display_with_icon }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <code class="bg-light px-2 py-1 rounded">{{ member.card_number }}</code>
+                                </td>
+                                <td>{{ member.personnel_number|default:"-" }}</td>
+                                <td>
+                                    {{ member.valid_until|date:"d.m.Y" }}
+                                    {% if member.manual_validity %}
+                                        <i class="fas fa-hand-paper text-info ms-1" title="Manuell gesetzt"></i>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if not member.is_active %}
+                                        <span class="badge bg-secondary">Inaktiv</span>
+                                    {% elif member.is_card_expired %}
+                                        <span class="badge bg-danger">Abgelaufen</span>
+                                    {% elif member.expires_soon %}
+                                        <span class="badge bg-warning text-dark">Läuft bald ab</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Gültig</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'members:member_detail' member.pk %}" 
+                                           class="btn btn-outline-info"
+                                           title="Details">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{% url 'members:member_edit' member.pk %}" 
+                                           class="btn btn-outline-primary"
+                                           title="Bearbeiten">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{% url 'members:member_delete' member.pk %}" 
+                                           class="btn btn-outline-danger"
+                                           title="Löschen"
+                                           onclick="return confirmDelete('{{ member.full_name }}')">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
+                
+                <!-- Pagination -->
+                {% if object_list.has_other_pages %}
+                <div class="card-footer">
+                    <nav aria-label="Seitennummerierung">
+                        <ul class="pagination pagination-sm justify-content-center mb-0">
+                            {% if object_list.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?{% if request.GET.search %}search={{ request.GET.search }}&{% endif %}{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.member_type %}member_type={{ request.GET.member_type }}&{% endif %}{% if request.GET.sort %}sort={{ request.GET.sort }}&{% endif %}page={{ object_list.previous_page_number }}">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                            
+                            {% for num in object_list.paginator.page_range %}
+                                {% if object_list.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?{% if request.GET.search %}search={{ request.GET.search }}&{% endif %}{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.member_type %}member_type={{ request.GET.member_type }}&{% endif %}{% if request.GET.sort %}sort={{ request.GET.sort }}&{% endif %}page={{ num }}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if object_list.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?{% if request.GET.search %}search={{ request.GET.search }}&{% endif %}{% if request.GET.status %}status={{ request.GET.status }}&{% endif %}{% if request.GET.member_type %}member_type={{ request.GET.member_type }}&{% endif %}{% if request.GET.sort %}sort={{ request.GET.sort }}&{% endif %}page={{ object_list.next_page_number }}">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+                
                 {% else %}
                 <div class="text-center py-5">
                     <i class="fas fa-users fa-3x text-muted mb-3"></i>
                     <h5 class="text-muted">Keine Mitglieder gefunden</h5>
-                    <a href="/admin/members/member/add/" class="btn btn-primary">
-                        <i class="fas fa-user-plus me-2"></i>Erstes Mitglied hinzufügen
-                    </a>
+                    <p class="text-muted">
+                        {% if request.GET.search or request.GET.status or request.GET.member_type %}
+                            Versuchen Sie andere Suchkriterien oder 
+                            <a href="{% url 'members:member_list' %}">zeigen Sie alle Mitglieder an</a>.
+                        {% else %}
+                            <a href="{% url 'members:member_add' %}" class="btn btn-primary mt-2">
+                                <i class="fas fa-user-plus me-2"></i>Erstes Mitglied hinzufügen
+                            </a>
+                        {% endif %}
+                    </p>
                 </div>
                 {% endif %}
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmDelete(memberName) {
+    return confirm('Möchten Sie das Mitglied "' + memberName + '" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.');
+}
+
+// Auto-submit bei Änderung der Filter
+document.addEventListener('DOMContentLoaded', function() {
+    const filterInputs = document.querySelectorAll('#member_type, #status, #sort');
+    
+    filterInputs.forEach(function(input) {
+        input.addEventListener('change', function() {
+            // Leere page parameter um zur ersten Seite zu springen
+            const url = new URL(window.location);
+            url.searchParams.delete('page');
+            url.searchParams.set(this.name, this.value);
+            window.location.href = url.toString();
+        });
+    });
+    
+    // Enter-Taste für Suche
+    document.getElementById('search').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            const form = this.closest('form');
+            form.submit();
+        }
+    });
+});
+</script>
+
+<style>
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+code {
+    font-size: 0.875rem;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+.btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+}
+
+.profile-image-preview {
+    transition: transform 0.2s;
+}
+
+.profile-image-preview:hover {
+    transform: scale(1.1);
+}
+
+.pagination-sm .page-link {
+    padding: 0.25rem 0.5rem;
+}
+</style>
 {% endblock %}
