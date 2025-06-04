@@ -1,0 +1,268 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}{{ title }} - Mitgliederverwaltung{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'members:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'members:member_list' %}">Mitglieder</a></li>
+        <li class="breadcrumb-item active">
+            {% if object %}Bearbeiten{% else %}Hinzufügen{% endif %}
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-{% if object %}edit{% else %}user-plus{% endif %} me-2"></i>
+                    {{ title }}
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <!-- Persönliche Daten -->
+                        <div class="col-md-8">
+                            <h5 class="mb-3">
+                                <i class="fas fa-user me-2"></i>Persönliche Daten
+                            </h5>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.first_name.id_for_label }}" class="form-label">
+                                        {{ form.first_name.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.first_name }}
+                                    {% if form.first_name.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.first_name.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.last_name.id_for_label }}" class="form-label">
+                                        {{ form.last_name.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.last_name }}
+                                    {% if form.last_name.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.last_name.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.birth_date.id_for_label }}" class="form-label">
+                                        {{ form.birth_date.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.birth_date }}
+                                    {% if form.birth_date.help_text %}
+                                        <div class="form-text">{{ form.birth_date.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.birth_date.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.birth_date.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.personnel_number.id_for_label }}" class="form-label">
+                                        {{ form.personnel_number.label }}
+                                    </label>
+                                    {{ form.personnel_number }}
+                                    {% if form.personnel_number.help_text %}
+                                        <div class="form-text">{{ form.personnel_number.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.personnel_number.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.personnel_number.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <h5 class="mb-3 mt-4">
+                                <i class="fas fa-id-card me-2"></i>Ausweis-Daten
+                            </h5>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.issued_date.id_for_label }}" class="form-label">
+                                        {{ form.issued_date.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.issued_date }}
+                                    {% if form.issued_date.help_text %}
+                                        <div class="form-text">{{ form.issued_date.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.issued_date.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.issued_date.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3 d-flex align-items-center">
+                                    <div class="form-check">
+                                        {{ form.is_active }}
+                                        <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                            {{ form.is_active.label }}
+                                        </label>
+                                        {% if form.is_active.help_text %}
+                                            <div class="form-text">{{ form.is_active.help_text }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Profilbild -->
+                        <div class="col-md-4">
+                            <h5 class="mb-3">
+                                <i class="fas fa-image me-2"></i>Profilbild
+                            </h5>
+                            
+                            <div class="mb-3">
+                                <div class="profile-image-container text-center">
+                                    {% if object.profile_picture %}
+                                        <img src="{{ object.profile_picture.url }}" 
+                                             class="profile-image-preview mb-3" 
+                                             alt="Aktuelles Profilbild"
+                                             id="image-preview">
+                                    {% else %}
+                                        <div class="profile-image-placeholder mb-3" id="image-preview">
+                                            <i class="fas fa-user fa-3x"></i>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <label for="{{ form.profile_picture.id_for_label }}" class="form-label">
+                                    {{ form.profile_picture.label }}
+                                </label>
+                                {{ form.profile_picture }}
+                                {% if form.profile_picture.help_text %}
+                                    <div class="form-text">{{ form.profile_picture.help_text }}</div>
+                                {% endif %}
+                                {% if form.profile_picture.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.profile_picture.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Form Errors -->
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Buttons -->
+                    <div class="row">
+                        <div class="col-12">
+                            <hr>
+                            <div class="d-flex justify-content-between">
+                                <a href="{% url 'members:member_list' %}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left me-2"></i>Zurück
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>{{ submit_text|default:"Speichern" }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Image preview functionality
+    const imageInput = document.getElementById('{{ form.profile_picture.id_for_label }}');
+    const imagePreview = document.getElementById('image-preview');
+    
+    if (imageInput && imagePreview) {
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.innerHTML = `
+                        <img src="${e.target.result}" 
+                             class="profile-image-preview mb-3" 
+                             alt="Bildvorschau">
+                    `;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+    
+    // Auto-calculate valid_until date (5 years from issued_date)
+    const issuedDateInput = document.getElementById('{{ form.issued_date.id_for_label }}');
+    if (issuedDateInput) {
+        function updateValidUntil() {
+            const issuedDate = new Date(issuedDateInput.value);
+            if (issuedDate) {
+                const validUntil = new Date(issuedDate);
+                validUntil.setFullYear(validUntil.getFullYear() + 5);
+                
+                // Show calculated date
+                const validUntilText = document.getElementById('valid-until-display');
+                if (!validUntilText) {
+                    const displayDiv = document.createElement('div');
+                    displayDiv.id = 'valid-until-display';
+                    displayDiv.className = 'form-text text-info';
+                    displayDiv.innerHTML = `
+                        <i class="fas fa-calendar-check me-1"></i>
+                        Gültig bis: ${validUntil.toLocaleDateString('de-DE')}
+                    `;
+                    issuedDateInput.parentNode.appendChild(displayDiv);
+                } else {
+                    validUntilText.innerHTML = `
+                        <i class="fas fa-calendar-check me-1"></i>
+                        Gültig bis: ${validUntil.toLocaleDateString('de-DE')}
+                    `;
+                }
+            }
+        }
+        
+        issuedDateInput.addEventListener('change', updateValidUntil);
+        // Initial calculation if date is already set
+        if (issuedDateInput.value) {
+            updateValidUntil();
+        }
+    }
+    
+    // Form validation
+    const form = document.querySelector('.needs-validation');
+    form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+    });
+});
+</script>
+{% endblock %}

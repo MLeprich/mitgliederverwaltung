@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - Mitgliederverwaltung{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="h3 mb-4">
+            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+            <small class="text-muted">Übersicht</small>
+        </h1>
+    </div>
+</div>
+
+<!-- Statistik Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                            Aktive Mitglieder
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">
+                            {{ stats.active_members }}
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-users fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card success">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                            Gültige Ausweise
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">
+                            {{ stats.valid_cards }}
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-id-card fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card warning">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                            Laufen bald ab
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">
+                            {{ stats.expiring_soon }}
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card danger">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                            Abgelaufen
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">
+                            {{ stats.expired_cards }}
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-times-circle fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+			<div class="row">
+                <div class="row">
+                    <div class="col-sm-6 mb-3">
+                        <a href="{% url 'members:member_add' %}" class="btn btn-primary w-100">
+                            <i class="fas fa-user-plus me-2"></i>Neues Mitglied
+                        </a>
+                    </div>
+                    <div class="col-sm-6 mb-3">
+                        <a href="{% url 'members:member_list' %}" class="btn btn-info w-100">
+                            <i class="fas fa-list me-2"></i>Alle Mitglieder
+                        </a>
+                    </div>
+                    <div class="col-sm-6 mb-3">
+                        <a href="{% url 'members:import_data' %}" class="btn btn-success w-100">
+                            <i class="fas fa-file-import me-2"></i>Daten importieren
+                        </a>
+                    </div>
+                    <div class="col-sm-6 mb-3">
+                        <a href="{% url 'members:export_data' %}?format=csv" class="btn btn-warning w-100">
+                            <i class="fas fa-file-export me-2"></i>CSV Export
+                        </a>
+                    </div>
+                </div>
+            </div>      
+
+    <!-- Letzte Aktivitäten -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-clock me-2"></i>Neueste Mitglieder
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if recent_members %}
+                {% for member in recent_members %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                        <h6 class="mb-1">{{ member.full_name }}</h6>
+                        <small class="text-muted">
+                            Hinzugefügt am {{ member.created_at|date:"d.m.Y H:i" }}
+                        </small>
+                    </div>
+                    <a href="{% url 'members:member_detail' member.pk %}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p class="text-muted mb-0">Noch keine Mitglieder vorhanden.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ablaufende Ausweise -->
+{% if expiring_members %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="m-0 font-weight-bold text-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Ausweise die bald ablaufen
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Personalnummer</th>
+                                <th>Gültig bis</th>
+                                <th>Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for member in expiring_members %}
+                            <tr>
+                                <td>{{ member.full_name }}</td>
+                                <td>{{ member.personnel_number|default:"-" }}</td>
+                                <td>{{ member.valid_until|date:"d.m.Y" }}</td>
+                                <td>
+                                    <a href="{% url 'members:member_edit' member.pk %}" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-edit"></i> Bearbeiten
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
+{% endblock %}

@@ -1,0 +1,57 @@
+# Django
+*.pyc
+*pyo
+__pycache__/
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Django specific
+db.sqlite3
+db.sqlite3-journal
+*.log
+local_settings.py
+
+# Media files (Profilbilder - sensible Daten!)
+media/
+uploads/
+staticfiles/
+
+# Environment variables (WICHTIG: Geheimnisse nicht committen!)
+.env
+.env.local
+.env.production
+
+# Backup files
+backups/
+*.backup
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Gunicorn
+gunicorn.pid
+
+# Local configuration
+local_config.py
+secrets.py

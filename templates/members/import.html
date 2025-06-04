@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Datenimport - Mitgliederverwaltung{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="h3 mb-4">
+            <i class="fas fa-file-import me-2"></i>Datenimport
+            <small class="text-muted">CSV oder Excel-Dateien</small>
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Import Form -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-upload me-2"></i>Datei hochladen
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" id="import-form">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label for="{{ form.file.id_for_label }}" class="form-label">
+                            {{ form.file.label }}
+                        </label>
+                        
+                        <div class="file-upload-area" onclick="document.getElementById('{{ form.file.id_for_label }}').click()">
+                            <div class="upload-content">
+                                <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                <h6 class="upload-text">Datei hier ablegen oder klicken zum Auswählen</h6>
+                                <p class="text-muted mb-0">
+                                    Unterstützte Formate: CSV, Excel (.xlsx, .xls)<br>
+                                    Maximale Dateigröße: 10MB
+                                </p>
+                            </div>
+                            <div class="file-preview"></div>
+                        </div>
+                        
+                        {{ form.file }}
+                        
+                        {% if form.file.help_text %}
+                            <div class="form-text">{{ form.file.help_text }}</div>
+                        {% endif %}
+                        {% if form.file.errors %}
+                            <div class="text-danger mt-2">{{ form.file.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-file-import me-2"></i>Daten importieren
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Anleitung -->
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>Anleitung
+                </h5>
+            </div>
+            <div class="card-body">
+                <h6>Erforderliche Spalten:</h6>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-check text-success me-2"></i><strong>Vorname</strong> (Pflicht)</li>
+                    <li><i class="fas fa-check text-success me-2"></i><strong>Nachname</strong> (Pflicht)</li>
+                    <li><i class="fas fa-check text-success me-2"></i><strong>Geburtsdatum</strong> (Pflicht)</li>
+                    <li><i class="fas fa-minus text-warning me-2"></i><strong>Personalnummer</strong> (Optional)</li>
+                    <li><i class="fas fa-minus text-warning me-2"></i><strong>Ausgestellt</strong> (Optional)</li>
+                </ul>
+                
+                <hr>
+                
+                <h6>Formathinweise:</h6>
+                <ul class="small text-muted">
+                    <li>Geburtsdatum: TT.MM.JJJJ oder JJJJ-MM-TT</li>
+                    <li>Erste Zeile sollte Spaltenüberschriften enthalten</li>
+                    <li>Leere Zeilen werden ignoriert</li>
+                    <li>Duplikate werden erkannt und übersprungen</li>
+                </ul>
+                
+                <hr>
+                
+                <div class="d-grid gap-2">
+                    <a href="{% url 'members:download_template' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-download me-2"></i>Vorlage herunterladen
+                    </a>
+                    <a href="{% url 'members:export_data' %}?format=csv" class="btn btn-outline-success">
+                        <i class="fas fa-file-csv me-2"></i>Alle als CSV exportieren
+                    </a>
+                    <a href="{% url 'members:export_data' %}?format=excel" class="btn btn-outline-info">
+                        <i class="fas fa-file-excel me-2"></i>Alle als Excel exportieren
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Wichtige Hinweise
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <small>
+                        <strong>Backup erstellen:</strong> Erstellen Sie vor dem Import ein Backup Ihrer Daten.
+                    </small>
+                </div>
+                <div class="alert alert-info">
+                    <small>
+                        <strong>Große Dateien:</strong> Bei mehr als 1000 Einträgen kann der Import einige Minuten dauern.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('{{ form.file.id_for_label }}');
+    const uploadArea = document.querySelector('.file-upload-area');
+    const uploadText = document.querySelector('.upload-text');
+    const filePreview = document.querySelector('.file-preview');
+    
+    // File input change handler
+    fileInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            const file = this.files[0];
+            uploadText.innerHTML = `
+                <i class="fas fa-check-circle text-success"></i>
+                Datei ausgewählt: ${file.name}
+            `;
+            filePreview.innerHTML = `
+                <div class="mt-3">
+                    <strong>${file.name}</strong><br>
+                    <small class="text-muted">${(file.size / 1024).toFixed(1)} KB</small>
+                </div>
+            `;
+        }
+    });
+    
+    // Drag and drop handlers
+    uploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#007bff';
+        uploadArea.style.backgroundColor = 'rgba(0, 123, 255, 0.05)';
+    });
+    
+    uploadArea.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#ced4da';
+        uploadArea.style.backgroundColor = '#f8f9fa';
+    });
+    
+    uploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#ced4da';
+        uploadArea.style.backgroundColor = '#f8f9fa';
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            fileInput.dispatchEvent(new Event('change'));
+        }
+    });
+});
+</script>
+{% endblock %}

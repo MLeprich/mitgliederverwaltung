@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block title %}Mitglied löschen - Mitgliederverwaltung{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'members:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'members:member_list' %}">Mitglieder</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'members:member_detail' object.pk %}">{{ object.full_name }}</a></li>
+        <li class="breadcrumb-item active">Löschen</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card shadow border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Mitglied löschen
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    <strong>Achtung:</strong> Diese Aktion kann nicht rückgängig gemacht werden!
+                </div>
+                
+                <p class="lead">
+                    Möchten Sie das Mitglied <strong>{{ object.full_name }}</strong> wirklich löschen?
+                </p>
+                
+                <div class="row">
+                    <div class="col-md-4 text-center mb-3">
+                        {% if object.profile_picture %}
+                            <img src="{{ object.profile_picture.url }}" 
+                                 class="img-fluid rounded border" 
+                                 style="max-width: 120px; max-height: 150px;"
+                                 alt="{{ object.full_name }}">
+                        {% else %}
+                            <div class="bg-light border rounded d-flex align-items-center justify-content-center" 
+                                 style="width: 120px; height: 150px; margin: 0 auto;">
+                                <i class="fas fa-user fa-3x text-muted"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-8">
+                        <table class="table table-sm">
+                            <tr>
+                                <td><strong>Name:</strong></td>
+                                <td>{{ object.full_name }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Geburtsdatum:</strong></td>
+                                <td>{{ object.birth_date|date:"d.m.Y" }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Personalnummer:</strong></td>
+                                <td>{{ object.personnel_number|default:"-" }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Erstellt am:</strong></td>
+                                <td>{{ object.created_at|date:"d.m.Y" }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'members:member_detail' object.pk %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Abbrechen
+                        </a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash me-2"></i>Endgültig löschen
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

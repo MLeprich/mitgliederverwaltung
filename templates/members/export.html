@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Datenexport - Mitgliederverwaltung{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'members:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item active">Export</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="h3 mb-4">
+            <i class="fas fa-file-export me-2"></i>
+            Datenexport
+            <small class="text-muted">CSV oder Excel-Format</small>
+        </h1>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card shadow">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-download me-2"></i>Export-Optionen
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post" id="export-form">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label for="{{ form.format.id_for_label }}" class="form-label">
+                            <i class="fas fa-file me-2"></i>{{ form.format.label }}
+                        </label>
+                        {{ form.format }}
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="{{ form.members.id_for_label }}" class="form-label">
+                            <i class="fas fa-users me-2"></i>{{ form.members.label }}
+                        </label>
+                        {{ form.members }}
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="form-check">
+                            {{ form.include_images }}
+                            <label class="form-check-label" for="{{ form.include_images.id_for_label }}">
+                                <i class="fas fa-images me-2"></i>{{ form.include_images.label }}
+                            </label>
+                            {% if form.include_images.help_text %}
+                                <div class="form-text">{{ form.include_images.help_text }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-download me-2"></i>Export starten
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('export-form');
+    
+    form.addEventListener('submit', function(e) {
+        // Loading indicator anzeigen
+        showLoading();
+        
+        // Button deaktivieren
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Exportiere...';
+        
+        // Nach 3 Sekunden wieder aktivieren (Download startet)
+        setTimeout(() => {
+            hideLoading();
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-download me-2"></i>Export starten';
+        }, 3000);
+    });
+});
+</script>
+{% endblock %}

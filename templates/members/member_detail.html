@@ -1,0 +1,221 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ member.full_name }} - Mitgliederverwaltung{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'members:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'members:member_list' %}">Mitglieder</a></li>
+        <li class="breadcrumb-item active">{{ member.full_name }}</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3">
+                <i class="fas fa-user me-2"></i>
+                {{ member.full_name }}
+                {% if not member.is_active %}
+                    <span class="badge bg-secondary ms-2">Inaktiv</span>
+                {% endif %}
+            </h1>
+            <div class="btn-group">
+                <a href="{% url 'members:member_edit' member.pk %}" class="btn btn-primary">
+                    <i class="fas fa-edit me-2"></i>Bearbeiten
+                </a>
+                <a href="{% url 'members:member_delete' member.pk %}" 
+                   class="btn btn-danger"
+                   onclick="return confirmDelete('{{ member.full_name }}')">
+                    <i class="fas fa-trash me-2"></i>Löschen
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Mitgliederdaten -->
+    <div class="col-lg-8">
+        <div class="card shadow mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>Mitgliederdaten
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-3">Persönliche Daten</h6>
+                        <table class="table table-borderless">
+                            <tr>
+                                <td class="fw-bold">Vorname:</td>
+                                <td>{{ member.first_name }}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">Nachname:</td>
+                                <td>{{ member.last_name }}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">Geburtsdatum:</td>
+                                <td>{{ member.birth_date|date:"d.m.Y" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">Alter:</td>
+                                <td>{{ member.age }} Jahre</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">Personalnummer:</td>
+                                <td>{{ member.personnel_number|default:"-" }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-3">Ausweis-Daten</h6>
+                        <table class="table table-borderless">
+                            <tr>
+                                <td class="fw-bold">Ausgestellt am:</td>
+                                <td>{{ member.issued_date|date:"d.m.Y" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">Gültig bis:</td>
+                                <td>{{ member.valid_until|date:"d.m.Y" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">Status:</td>
+                                <td>
+                                    {% if member.is_card_expired %}
+                                        <span class="badge bg-danger">Abgelaufen</span>
+                                    {% elif member.expires_soon %}
+                                        <span class="badge bg-warning">Läuft bald ab</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Gültig</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">Mitglied aktiv:</td>
+                                <td>
+                                    {% if member.is_active %}
+                                        <span class="badge bg-success">Ja</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Nein</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Meta-Informationen -->
+        <div class="card shadow">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Meta-Informationen
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-2">
+                            <strong>Erstellt am:</strong><br>
+                            {{ member.created_at|date:"d.m.Y H:i" }}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="mb-2">
+                            <strong>Zuletzt aktualisiert:</strong><br>
+                            {{ member.updated_at|date:"d.m.Y H:i" }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Profilbild und Aktionen -->
+    <div class="col-lg-4">
+        <div class="card shadow mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-image me-2"></i>Profilbild
+                </h5>
+            </div>
+            <div class="card-body text-center">
+                {% if member.profile_picture %}
+                    <img src="{{ member.profile_picture.url }}" 
+                         class="img-fluid rounded border" 
+                         alt="Profilbild von {{ member.full_name }}"
+                         style="max-width: 200px; max-height: 250px;">
+                {% else %}
+                    <div class="bg-light border rounded d-flex align-items-center justify-content-center" 
+                         style="width: 200px; height: 250px; margin: 0 auto;">
+                        <i class="fas fa-user fa-4x text-muted"></i>
+                    </div>
+                    <p class="text-muted mt-3">Kein Profilbild vorhanden</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Schnellaktionen -->
+        <div class="card shadow">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-bolt me-2"></i>Schnellaktionen
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'members:member_edit' member.pk %}" class="btn btn-primary">
+                        <i class="fas fa-edit me-2"></i>Bearbeiten
+                    </a>
+                    
+                    {% if member.is_card_expired or member.expires_soon %}
+                    <button class="btn btn-warning" onclick="renewCard()">
+                        <i class="fas fa-redo me-2"></i>Ausweis verlängern
+                    </button>
+                    {% endif %}
+                    
+                    <button class="btn btn-info" onclick="printCard()">
+                        <i class="fas fa-print me-2"></i>Ausweis drucken
+                    </button>
+                    
+                    <hr>
+                    
+                    <a href="{% url 'members:member_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Zurück zur Liste
+                    </a>
+                    
+                    <a href="{% url 'members:member_delete' member.pk %}" 
+                       class="btn btn-danger"
+                       onclick="return confirmDelete('{{ member.full_name }}')">
+                        <i class="fas fa-trash me-2"></i>Mitglied löschen
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function renewCard() {
+    if (confirm('Ausweis für {{ member.full_name }} um 5 Jahre verlängern?')) {
+        // Hier könnte eine AJAX-Anfrage implementiert werden
+        showAlert('Funktion wird in einer zukünftigen Version implementiert.', 'info');
+    }
+}
+
+function printCard() {
+    showAlert('Druckfunktion wird mit Cardpresso-Integration implementiert.', 'info');
+}
+</script>
+{% endblock %}
