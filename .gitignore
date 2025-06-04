@@ -56,14 +56,40 @@ gunicorn.pid
 local_config.py
 secrets.py
 
-# Installation scripts (temporary files)
+# Installation scripts (temporary setup files)
 install_part*.sh
 complete_install.sh
 backup_system.sh
 monitor_system.sh
 deploy.sh
+setup_*.sh
 
-# Temporary installation files
-*.backup
-*.old
-temp_*
+# Development and testing
+test_data/
+*.test
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Documentation builds
+docs/_build/
+site/
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
