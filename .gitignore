@@ -55,3 +55,15 @@ gunicorn.pid
 # Local configuration
 local_config.py
 secrets.py
+
+# Installation scripts (temporary files)
+install_part*.sh
+complete_install.sh
+backup_system.sh
+monitor_system.sh
+deploy.sh
+
+# Temporary installation files
+*.backup
+*.old
+temp_*
