@@ -678,3 +678,24 @@ def _get_filtered_member_context(request, base_queryset, title, icon, descriptio
         'member_type_value': member_type or '',
         'sort_value': sort,
     }
+
+@login_required
+def image_quality_check(request, pk):
+    """Debug-View um Bildqualität zu überprüfen"""
+    member = get_object_or_404(Member, pk=pk)
+    
+    image_info = member.get_image_info()
+    
+    context = {
+        'member': member,
+        'image_info': image_info,
+        'requirements': {
+            'width': 267,
+            'height': 400,
+            'dpi': 300,
+            'format': 'JPEG',
+            'quality': 'Hoch (95%+)',
+        }
+    }
+    
+    return render(request, 'members/image_debug.html', context)

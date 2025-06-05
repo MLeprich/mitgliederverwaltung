@@ -136,45 +136,192 @@ class Member(models.Model):
         
         return card_number
     
+    # Verbesserte resize_image Methode für members/models.py
+
     def resize_image(self):
-        """Passt Profilbild auf maximale Größe an und korrigiert EXIF-Orientierung"""
+        """
+        Passt Profilbild für Dienstausweis-Druck an:
+        - Exakte Größe: 267x400 Pixel (Passbild-Format)
+        - 300 DPI für Druckqualität
+        - Optimierte Kompression für Druck
+        - EXIF-Orientierung korrigieren
+        """
         try:
             from PIL import Image, ExifTags
+            import os
             
-            img = Image.open(self.profile_picture.path)
-            
-            # EXIF-Orientierung korrigieren
-            try:
-                for orientation in ExifTags.TAGS.keys():
-                    if ExifTags.TAGS[orientation] == 'Orientation':
-                        break
+            if not self.profile_picture or not os.path.exists(self.profile_picture.path):
+                return
                 
-                exif = img._getexif()
-                if exif is not None:
-                    orientation_value = exif.get(orientation)
-                    if orientation_value == 3:
-                        img = img.rotate(180, expand=True)
-                    elif orientation_value == 6:
-                        img = img.rotate(270, expand=True)
-                    elif orientation_value == 8:
-                        img = img.rotate(90, expand=True)
-            except (AttributeError, KeyError, TypeError):
-                # Keine EXIF-Daten oder Fehler beim Lesen - ignorieren
-                pass
-            
-            max_size = (300, 400)  # Breite x Höhe in Pixeln
-            
-            if img.height > max_size[1] or img.width > max_size[0]:
-                img.thumbnail(max_size, Image.Resampling.LANCZOS)
-            
-            # Als JPEG speichern um EXIF-Probleme zu vermeiden
-            if img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
-            
-            img.save(self.profile_picture.path, "JPEG", optimize=True, quality=85)
-            
+            # Bild öffnen
+            with Image.open(self.profile_picture.path) as img:
+                
+                # EXIF-Orientierung korrigieren
+                try:
+                    # Orientierung aus EXIF-Daten lesen
+                    exif_dict = img._getexif()
+                    if exif_dict is not None:
+                        for tag, value in exif_dict.items():
+                            if tag in ExifTags.TAGS and ExifTags.TAGS[tag] == 'Orientation':
+                                if value == 3:
+                                    img = img.rotate(180, expand=True)
+                                elif value == 6:
+                                    img = img.rotate(270, expand=True)  
+                                elif value == 8:
+                                    img = img.rotate(90, expand=True)
+                                break
+                except (AttributeError, KeyError, TypeError, OSError):
+                    # Keine EXIF-Daten oder Fehler - ignorieren
+                    pass
+                
+                # Zielgröße für Dienstausweis (Passbild-Format)
+                target_width = 267
+                target_height = 400
+                target_size = (target_width, target_height)
+                
+                # Original-Abmessungen
+                original_width, original_height = img.size
+                
+                # Seitenverhältnis berechnen
+                original_ratio = original_width / original_height
+                target_ratio = target_width / target_height
+                
+                # Bild zuschneiden um das richtige Seitenverhältnis zu erhalten
+                if original_ratio > target_ratio:
+                    # Bild ist zu breit - an der Seite beschneiden
+                    new_width = int(original_height * target_ratio)
+                    left = (original_width - new_width) // 2
+                    right = left + new_width
+                    img = img.crop((left, 0, right, original_height))
+                elif original_ratio < target_ratio:
+                    # Bild ist zu hoch - oben/unten beschneiden  
+                    new_height = int(original_width / target_ratio)
+                    top = (original_height - new_height) // 2
+                    bottom = top + new_height
+                    img = img.crop((0, top, original_width, bottom))
+                
+                # Auf finale Größe skalieren mit hochwertiger Interpolation
+                img = img.resize(target_size, Image.Resampling.LANCZOS)
+                
+                # In RGB konvertieren falls nötig (für JPEG)
+                if img.mode in ('RGBA', 'P', 'LA'):
+                    # Weißer Hintergrund für Transparenz
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    if img.mode == 'P':
+                        img = img.convert('RGBA')
+                    background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+                    img = background
+                elif img.mode != 'RGB':
+                    img = img.convert('RGB')
+                
+                # DPI für Druckqualität setzen (300 DPI)
+                dpi = (300, 300)
+                
+                # Optimierte JPEG-Einstellungen für Druck
+                save_kwargs = {
+                    'format': 'JPEG',
+                    'quality': 95,  # Höhere Qualität für Druck
+                    'optimize': True,
+                    'dpi': dpi,
+                    'progressive': True,  # Progressive JPEG für bessere Kompression
+                    'subsampling': 0,  # Keine Farbunterabtastung für beste Qualität
+                }
+                
+                # Bild speichern
+                img.save(self.profile_picture.path, **save_kwargs)
+                
+                # Metadaten prüfen (Debug)
+                print(f"Bild verarbeitet für {self.full_name}:")
+                print(f"- Größe: {target_width}x{target_height}px")
+                print(f"- DPI: {dpi[0]}")
+                print(f"- Format: JPEG")
+                print(f"- Qualität: 95%")
+                
         except Exception as e:
-            print(f"Fehler beim Bildverarbeitung für {self}: {e}")
+            print(f"Fehler bei Bildverarbeitung für {self}: {str(e)}")
+            # Log-Eintrag für Debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Bildverarbeitung fehlgeschlagen für Mitglied {self.pk}: {str(e)}")
+
+    def get_image_info(self):
+        """
+        Gibt Informationen über das gespeicherte Bild zurück
+        Nützlich für Debugging und Qualitätskontrolle
+        """
+        if not self.profile_picture:
+            return None
+            
+        try:
+            from PIL import Image
+            import os
+            
+            if not os.path.exists(self.profile_picture.path):
+                return None
+                
+            with Image.open(self.profile_picture.path) as img:
+                # Dateigröße
+                file_size = os.path.getsize(self.profile_picture.path)
+                
+                return {
+                    'width': img.width,
+                    'height': img.height,
+                    'format': img.format,
+                    'mode': img.mode,
+                    'dpi': img.info.get('dpi', (0, 0)),
+                    'file_size_kb': round(file_size / 1024, 2),
+                    'is_valid_size': img.width == 267 and img.height == 400,
+                    'is_print_quality': img.info.get('dpi', (0, 0))[0] >= 300,
+                }
+        except Exception as e:
+            return {'error': str(e)}
+
+    # Zusätzliche Validierung im MemberForm
+    def clean_profile_picture(self):
+        """Erweiterte Validierung für Profilbilder"""
+        picture = self.cleaned_data.get('profile_picture')
+        
+        if picture:
+            # Dateigröße prüfen (max 10MB)
+            if picture.size > 10 * 1024 * 1024:
+                raise ValidationError("Bilddatei ist zu groß. Maximum: 10MB")
+            
+            # Bildformat prüfen
+            try:
+                from PIL import Image
+                import io
+                
+                # Bild öffnen um Format zu validieren
+                image = Image.open(io.BytesIO(picture.read()))
+                
+                # Unterstützte Formate
+                supported_formats = ['JPEG', 'JPG', 'PNG', 'TIFF', 'BMP']
+                if image.format not in supported_formats:
+                    raise ValidationError(f"Unsupported format. Erlaubt: {', '.join(supported_formats)}")
+                
+                # Mindestauflösung prüfen (sollte mindestens Zielgröße haben)
+                min_width, min_height = 200, 300  # Etwas niedriger für Flexibilität
+                if image.width < min_width or image.height < min_height:
+                    raise ValidationError(
+                        f"Bild zu klein. Minimum: {min_width}x{min_height}px "
+                        f"(Aktuell: {image.width}x{image.height}px)"
+                    )
+                
+                # Maximalgröße prüfen (sehr große Bilder vermeiden)
+                max_width, max_height = 4000, 6000
+                if image.width > max_width or image.height > max_height:
+                    raise ValidationError(
+                        f"Bild zu groß. Maximum: {max_width}x{max_height}px "
+                        f"(Aktuell: {image.width}x{image.height}px)"
+                    )
+                
+                # Cursor zurücksetzen für weitere Verarbeitung
+                picture.seek(0)
+                
+            except Exception as e:
+                raise ValidationError(f"Ungültige Bilddatei: {str(e)}")
+        
+        return picture
     
     @property
     def full_name(self):

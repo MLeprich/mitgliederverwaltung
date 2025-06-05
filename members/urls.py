@@ -18,6 +18,7 @@ urlpatterns = [
     path('members/expired/', views.member_list_expired, name='member_list_expired'),
     path('members/active/', views.member_list_active, name='member_list_active'),
     path('members/inactive/', views.member_list_inactive, name='member_list_inactive'),
+    path('members/<int:pk>/image-debug/', views.image_quality_check, name='image_quality_check'),
     
     # Import/Export
     path('import/', views.import_data, name='import_data'),

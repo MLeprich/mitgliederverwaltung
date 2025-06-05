@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Bildqualität - {{ member.full_name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="h3 mb-4">
+            <i class="fas fa-image me-2"></i>
+            Bildqualität prüfen: {{ member.full_name }}
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-info-circle me-2"></i>Aktuelle Bildqualität</h5>
+            </div>
+            <div class="card-body">
+                {% if image_info %}
+                    {% if image_info.error %}
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            Fehler: {{ image_info.error }}
+                        </div>
+                    {% else %}
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>Abmessungen:</strong></td>
+                                <td>
+                                    {{ image_info.width }}x{{ image_info.height }}px
+                                    {% if image_info.is_valid_size %}
+                                        <span class="badge bg-success ms-2">✓ Korrekt</span>
+                                    {% else %}
+                                        <span class="badge bg-warning ms-2">⚠ Nicht optimal</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>DPI:</strong></td>
+                                <td>
+                                    {{ image_info.dpi.0 }}x{{ image_info.dpi.1 }}
+                                    {% if image_info.is_print_quality %}
+                                        <span class="badge bg-success ms-2">✓ Druckqualität</span>
+                                    {% else %}
+                                        <span class="badge bg-warning ms-2">⚠ Niedrige DPI</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Format:</strong></td>
+                                <td>
+                                    {{ image_info.format }}
+                                    {% if image_info.format == 'JPEG' %}
+                                        <span class="badge bg-success ms-2">✓ Optimal</span>
+                                    {% else %}
+                                        <span class="badge bg-info ms-2">ℹ Konvertiert</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Farbmodus:</strong></td>
+                                <td>{{ image_info.mode }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Dateigröße:</strong></td>
+                                <td>{{ image_info.file_size_kb }} KB</td>
+                            </tr>
+                        </table>
+                        
+                        <!-- Gesamtbewertung -->
+                        <div class="mt-3">
+                            {% if image_info.is_valid_size and image_info.is_print_quality %}
+                                <div class="alert alert-success">
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    <strong>Perfekt!</strong> Das Bild erfüllt alle Anforderungen für den Dienstausweis-Druck.
+                                </div>
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>Verbesserbar:</strong> Das Bild wurde automatisch optimiert, entspricht aber nicht allen idealen Werten.
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Kein Profilbild vorhanden.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-cog me-2"></i>Anforderungen für Dienstausweis</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr>
+                        <td><strong>Zielgröße:</strong></td>
+                        <td>{{ requirements.width }}x{{ requirements.height }}px</td>
+                    </tr>
+                    <tr>
+                        <td><strong>DPI für Druck:</strong></td>
+                        <td>{{ requirements.dpi }} DPI</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Format:</strong></td>
+                        <td>{{ requirements.format }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Qualität:</strong></td>
+                        <td>{{ requirements.quality }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Seitenverhältnis:</strong></td>
+                        <td>2:3 (Passbild-Format)</td>
+                    </tr>
+                </table>
+                
+                <div class="mt-3">
+                    <h6>Automatische Verarbeitung:</h6>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success me-2"></i>EXIF-Orientierung korrigieren</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Automatischer Zuschnitt</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Skalierung auf Zielgröße</li>
+                        <li><i class="fas fa-check text-success me-2"></i>DPI auf 300 setzen</li>
+                        <li><i class="fas fa-check text-success me-2"></i>JPEG-Optimierung</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Qualität: 95%</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bildvorschau -->
+        {% if member.profile_picture %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5><i class="fas fa-eye me-2"></i>Bildvorschau</h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="image-preview-container">
+                    <img src="{{ member.profile_picture.url }}" 
+                         class="img-fluid border rounded"
+                         style="max-width: 267px; max-height: 400px;"
+                         alt="{{ member.full_name }}">
+                </div>
+                <small class="text-muted mt-2 d-block">
+                    Originalgröße: {{ image_info.width }}x{{ image_info.height }}px
+                </small>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-lightbulb me-2"></i>Tipps für optimale Bildqualität</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>📸 Beim Fotografieren:</h6>
+                        <ul>
+                            <li>Gute Beleuchtung (am besten Tageslicht)</li>
+                            <li>Neutraler Hintergrund</li>
+                            <li>Frontal aufgenommenes Gesicht</li>
+                            <li>Mindestens 400x600px für beste Qualität</li>
+                            <li>Keine Schatten im Gesicht</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>💾 Beim Upload:</h6>
+                        <ul>
+                            <li>JPEG oder PNG Format verwenden</li>
+                            <li>Maximale Dateigröße: 10MB</li>
+                            <li>Hochauflösende Bilder werden automatisch optimiert</li>
+                            <li>EXIF-Orientierung wird automatisch korrigiert</li>
+                            <li>Automatischer Zuschnitt auf Passbild-Format</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12 text-center">
+        <a href="{% url 'members:member_detail' member.pk %}" class="btn btn-secondary me-2">
+            <i class="fas fa-arrow-left me-2"></i>Zurück zum Mitglied
+        </a>
+        <a href="{% url 'members:member_edit' member.pk %}" class="btn btn-primary">
+            <i class="fas fa-edit me-2"></i>Bild ändern
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.image-preview-container {
+    border: 2px dashed #dee2e6;
+    padding: 20px;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+.table td {
+    padding: 0.5rem 0;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.alert {
+    border-radius: 0.5rem;
+}
+
+.list-unstyled li {
+    padding: 0.25rem 0;
+}
+</style>
+{% endblock %}

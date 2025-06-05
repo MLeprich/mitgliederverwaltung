@@ -52,7 +52,8 @@ class MemberForm(forms.ModelForm):
             }),
             'profile_picture': forms.FileInput(attrs={
                 'class': 'form-control',
-                'accept': 'image/jpeg,image/jpg,image/png'
+                'accept': 'image/jpeg,image/jpg,image/png,image/tiff,image/bmp',
+                'data-max-size': '10485760',  # 10MB in Bytes
             }),
             'is_active': forms.CheckboxInput(attrs={
                 'class': 'form-check-input'
@@ -68,12 +69,19 @@ class MemberForm(forms.ModelForm):
             'issued_date': 'Ausgestellt am',
             'valid_until': 'Gültig bis',
             'manual_validity': 'Manuelle Gültigkeit (für Externe/Praktikanten)',
-            'profile_picture': 'Profilbild',
+            'profile_picture': 'Profilbild für Dienstausweis',
             'is_active': 'Aktiv'
         }
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        
+        # Bessere Hilftexte für Profilbild
+        self.fields['profile_picture'].help_text = (
+            "Foto für den Dienstausweis. Wird automatisch auf 267x400 Pixel "
+            "bei 300 DPI für optimale Druckqualität angepasst. "
+            "Unterstützte Formate: JPEG, PNG, TIFF, BMP. Max. 10MB."
+        )
         
         # Standardwerte setzen
         if not self.instance.pk:
@@ -122,6 +130,52 @@ class MemberForm(forms.ModelForm):
             raise ValidationError("Gültig bis muss nach dem Ausstellungsdatum liegen.")
         
         return valid_until
+    
+    def clean_profile_picture(self):
+        """Erweiterte Validierung für Profilbilder"""
+        picture = self.cleaned_data.get('profile_picture')
+        
+        if picture:
+            # Dateigröße prüfen (max 10MB)
+            if picture.size > 10 * 1024 * 1024:
+                raise ValidationError("Bilddatei ist zu groß. Maximum: 10MB")
+            
+            # Bildformat prüfen
+            try:
+                from PIL import Image
+                import io
+                
+                # Bild öffnen um Format zu validieren
+                image = Image.open(io.BytesIO(picture.read()))
+                
+                # Unterstützte Formate
+                supported_formats = ['JPEG', 'PNG', 'TIFF', 'BMP']
+                if image.format not in supported_formats:
+                    raise ValidationError(f"Unsupported format. Erlaubt: {', '.join(supported_formats)}")
+                
+                # Mindestauflösung prüfen
+                min_width, min_height = 200, 300  
+                if image.width < min_width or image.height < min_height:
+                    raise ValidationError(
+                        f"Bild zu klein. Minimum: {min_width}x{min_height}px "
+                        f"(Aktuell: {image.width}x{image.height}px)"
+                    )
+                
+                # Maximalgröße prüfen
+                max_width, max_height = 4000, 6000
+                if image.width > max_width or image.height > max_height:
+                    raise ValidationError(
+                        f"Bild zu groß. Maximum: {max_width}x{max_height}px "
+                        f"(Aktuell: {image.width}x{image.height}px)"
+                    )
+                
+                # Cursor zurücksetzen für weitere Verarbeitung
+                picture.seek(0)
+                
+            except Exception as e:
+                raise ValidationError(f"Ungültige Bilddatei: {str(e)}")
+        
+        return picture
     
     def clean(self):
         cleaned_data = super().clean()
