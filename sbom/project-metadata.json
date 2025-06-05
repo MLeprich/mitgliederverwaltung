@@ -1,0 +1,14 @@
+{
+  "project": {
+    "name": "Django Mitgliederverwaltung",
+    "version": "1.0.0",
+    "description": "Mitgliederverwaltungssystem für Vereine",
+    "repository": "git@github.com:MLeprich/mitgliederverwaltung.git",
+    "branch": "main",
+    "commit": "db7e6f0a608d884a8bcc3eb8e978b217050ca570",
+    "generated": "2025-06-05T12:55:18.270Z",
+    "generator": "manual-sbom-script",
+    "python_version": "Python 3.11.2",
+    "django_version": "4.2.13"
+  }
+}

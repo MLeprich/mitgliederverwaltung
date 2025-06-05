@@ -1,0 +1,74 @@
+NAME                       VERSION         TYPE                    
+Simple Launcher            1.1.0.14        binary  [90m(+5 duplicates)[0m  
+arrow                      1.3.0           python  [90m[0m                 
+asgiref                    3.8.1           python  [90m[0m                 
+attrs                      25.3.0          python  [90m[0m                 
+boolean-py                 5.0             python  [90m[0m                 
+cachecontrol               0.14.3          python  [90m[0m                 
+certifi                    2025.4.26       python  [90m[0m                 
+chardet                    5.2.0           python  [90m[0m                 
+charset-normalizer         3.4.2           python  [90m[0m                 
+cli                        UNKNOWN         binary  [90m[0m                 
+cli-32                     UNKNOWN         binary  [90m[0m                 
+cli-64                     UNKNOWN         binary  [90m[0m                 
+cli-arm64                  UNKNOWN         binary  [90m[0m                 
+crispy-bootstrap4          2022.1          python  [90m(+1 duplicate)[0m   
+cyclonedx-bom              6.1.1           python  [90m[0m                 
+cyclonedx-python-lib       10.0.2          python  [90m[0m                 
+defusedxml                 0.7.1           python  [90m[0m                 
+django                     4.2.13          python  [90m(+1 duplicate)[0m   
+django-crispy-forms        2.0             python  [90m(+1 duplicate)[0m   
+et-xmlfile                 2.0.0           python  [90m[0m                 
+filelock                   3.18.0          python  [90m[0m                 
+fqdn                       1.5.1           python  [90m[0m                 
+gui                        UNKNOWN         binary  [90m[0m                 
+gui-32                     UNKNOWN         binary  [90m[0m                 
+gui-64                     UNKNOWN         binary  [90m[0m                 
+gui-arm64                  UNKNOWN         binary  [90m[0m                 
+gunicorn                   21.2.0          python  [90m(+1 duplicate)[0m   
+html5lib                   1.1             python  [90m[0m                 
+idna                       3.10            python  [90m[0m                 
+isoduration                20.11.0         python  [90m[0m                 
+jsonpointer                3.0.0           python  [90m[0m                 
+jsonschema                 4.24.0          python  [90m[0m                 
+jsonschema-specifications  2025.4.1        python  [90m[0m                 
+license-expression         30.4.1          python  [90m[0m                 
+lxml                       5.4.0           python  [90m[0m                 
+markdown-it-py             3.0.0           python  [90m[0m                 
+mdurl                      0.1.2           python  [90m[0m                 
+msgpack                    1.1.0           python  [90m[0m                 
+numpy                      1.24.3          python  [90m[0m                 
+openpyxl                   3.1.2           python  [90m(+1 duplicate)[0m   
+packageurl-python          0.17.0          python  [90m[0m                 
+packaging                  25.0            python  [90m[0m                 
+pandas                     2.0.3           python  [90m(+1 duplicate)[0m   
+pillow                     10.0.0          python  [90m(+1 duplicate)[0m   
+pip                        25.1.1          python  [90m[0m                 
+pip-api                    0.0.34          python  [90m[0m                 
+pip-audit                  2.5.1           python  [90m[0m                 
+pip-requirements-parser    32.0.1          python  [90m[0m                 
+py-serializable            2.0.0           python  [90m[0m                 
+pygments                   2.19.1          python  [90m[0m                 
+pyparsing                  3.2.3           python  [90m[0m                 
+python-dateutil            2.9.0.post0     python  [90m[0m                 
+python-decouple            3.8             python  [90m(+1 duplicate)[0m   
+pytz                       2025.2          python  [90m[0m                 
+referencing                0.36.2          python  [90m[0m                 
+requests                   2.32.3          python  [90m[0m                 
+rfc3339-validator          0.1.4           python  [90m[0m                 
+rfc3987                    1.3.8           python  [90m[0m                 
+rich                       14.0.0          python  [90m[0m                 
+rpds-py                    0.25.1          python  [90m[0m                 
+setuptools                 66.1.1          python  [90m[0m                 
+six                        1.17.0          python  [90m[0m                 
+sortedcontainers           2.4.0           python  [90m[0m                 
+sqlparse                   0.5.3           python  [90m[0m                 
+toml                       0.10.2          python  [90m[0m                 
+types-python-dateutil      2.9.0.20250516  python  [90m[0m                 
+typing-extensions          4.14.0          python  [90m[0m                 
+tzdata                     2025.2          python  [90m[0m                 
+uri-template               1.3.0           python  [90m[0m                 
+urllib3                    2.4.0           python  [90m[0m                 
+webcolors                  24.11.1         python  [90m[0m                 
+webencodings               0.5.1           python  [90m[0m                 
+whitenoise                 6.5.0           python  [90m(+1 duplicate)[0m   

@@ -332,3 +332,7 @@ dev_*
 *.sh.old
 *_old.*
 *_backup.*
+
+# SBOM files (but keep the directory)
+# Remove this if you want to track SBOM files
+# sbom/*.json
