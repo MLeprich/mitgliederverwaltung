@@ -1,14 +1,14 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Datenimport - Mitgliederverwaltung{% endblock %}
+{% block title %}CSV-Datenimport - Mitgliederverwaltung{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-12">
         <h1 class="h3 mb-4">
-            <i class="fas fa-file-import me-2"></i>Datenimport
-            <small class="text-muted">CSV oder Excel-Dateien</small>
+            <i class="fas fa-file-import me-2"></i>CSV-Datenimport
+            <small class="text-muted">Nur CSV-Dateien</small>
         </h1>
     </div>
 </div>
@@ -19,7 +19,7 @@
         <div class="card mb-4">
             <div class="card-header">
                 <h5 class="mb-0">
-                    <i class="fas fa-upload me-2"></i>Datei hochladen
+                    <i class="fas fa-upload me-2"></i>CSV-Datei hochladen
                 </h5>
             </div>
             <div class="card-body">
@@ -33,11 +33,11 @@
                         
                         <div class="file-upload-area" onclick="document.getElementById('{{ form.file.id_for_label }}').click()">
                             <div class="upload-content">
-                                <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
-                                <h6 class="upload-text">Datei hier ablegen oder klicken zum Auswählen</h6>
+                                <i class="fas fa-file-csv fa-3x text-success mb-3"></i>
+                                <h6 class="upload-text">CSV-Datei hier ablegen oder klicken zum Auswählen</h6>
                                 <p class="text-muted mb-0">
-                                    Unterstützte Formate: CSV, Excel (.xlsx, .xls)<br>
-                                    Maximale Dateigröße: 10MB
+                                    <strong>Nur CSV-Dateien werden unterstützt</strong><br>
+                                    UTF-8 kodiert, maximale Dateigröße: 10MB
                                 </p>
                             </div>
                             <div class="file-preview"></div>
@@ -53,9 +53,15 @@
                         {% endif %}
                     </div>
                     
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Excel-Dateien:</strong> Bitte speichern Sie Ihre Excel-Datei als CSV 
+                        (UTF-8 kodiert) bevor Sie sie hochladen.
+                    </div>
+                    
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary btn-lg">
-                            <i class="fas fa-file-import me-2"></i>Daten importieren
+                            <i class="fas fa-file-import me-2"></i>CSV-Daten importieren
                         </button>
                     </div>
                 </form>
@@ -68,7 +74,7 @@
         <div class="card mb-4">
             <div class="card-header">
                 <h5 class="mb-0">
-                    <i class="fas fa-info-circle me-2"></i>Anleitung
+                    <i class="fas fa-info-circle me-2"></i>CSV-Format
                 </h5>
             </div>
             <div class="card-body">
@@ -78,31 +84,63 @@
                     <li><i class="fas fa-check text-success me-2"></i><strong>Nachname</strong> (Pflicht)</li>
                     <li><i class="fas fa-check text-success me-2"></i><strong>Geburtsdatum</strong> (Pflicht)</li>
                     <li><i class="fas fa-minus text-warning me-2"></i><strong>Personalnummer</strong> (Optional)</li>
-                    <li><i class="fas fa-minus text-warning me-2"></i><strong>Ausgestellt</strong> (Optional)</li>
+                    <li><i class="fas fa-minus text-warning me-2"></i><strong>Mitarbeitertyp_Code</strong> (Optional)</li>
                 </ul>
                 
                 <hr>
                 
-                <h6>Formathinweise:</h6>
+                <h6>Datumsformat:</h6>
                 <ul class="small text-muted">
-                    <li>Geburtsdatum: TT.MM.JJJJ oder JJJJ-MM-TT</li>
-                    <li>Erste Zeile sollte Spaltenüberschriften enthalten</li>
-                    <li>Leere Zeilen werden ignoriert</li>
-                    <li>Duplikate werden erkannt und übersprungen</li>
+                    <li><strong>TT.MM.JJJJ</strong> (z.B. 15.08.1989)</li>
+                    <li>TT.MM.JJ (z.B. 15.08.89)</li>
+                    <li>JJJJ-MM-TT (z.B. 1989-08-15)</li>
+                </ul>
+                
+                <hr>
+                
+                <h6>Mitarbeitertyp-Codes:</h6>
+                <ul class="small text-muted">
+                    <li><strong>BF</strong> - Berufsfeuerwehr</li>
+                    <li><strong>FF</strong> - Freiwillige Feuerwehr</li>
+                    <li><strong>JF</strong> - Jugendfeuerwehr</li>
+                    <li><strong>STADT</strong> - Stadt</li>
+                    <li><strong>EXTERN</strong> - Extern</li>
+                    <li><strong>PRAKTIKANT</strong> - Praktikant</li>
                 </ul>
                 
                 <hr>
                 
                 <div class="d-grid gap-2">
                     <a href="{% url 'members:download_template' %}" class="btn btn-outline-primary">
-                        <i class="fas fa-download me-2"></i>Vorlage herunterladen
+                        <i class="fas fa-download me-2"></i>CSV-Vorlage herunterladen
                     </a>
                     <a href="{% url 'members:export_data' %}?format=csv" class="btn btn-outline-success">
                         <i class="fas fa-file-csv me-2"></i>Alle als CSV exportieren
                     </a>
-                    <a href="{% url 'members:export_data' %}?format=excel" class="btn btn-outline-info">
-                        <i class="fas fa-file-excel me-2"></i>Alle als Excel exportieren
-                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-file-excel me-2"></i>Excel zu CSV konvertieren
+                </h5>
+            </div>
+            <div class="card-body">
+                <h6>In Excel:</h6>
+                <ol class="small">
+                    <li>Datei öffnen</li>
+                    <li><strong>Datei</strong> → <strong>Speichern unter</strong></li>
+                    <li>Dateityp: <strong>CSV UTF-8 (durch Trennzeichen getrennt)</strong></li>
+                    <li>Speichern und hier hochladen</li>
+                </ol>
+                
+                <div class="alert alert-warning mt-3">
+                    <small>
+                        <strong>Wichtig:</strong> Verwenden Sie "CSV UTF-8" für korrekte 
+                        Darstellung von Umlauten (ä, ö, ü).
+                    </small>
                 </div>
             </div>
         </div>
@@ -121,7 +159,7 @@
                 </div>
                 <div class="alert alert-info">
                     <small>
-                        <strong>Große Dateien:</strong> Bei mehr als 1000 Einträgen kann der Import einige Minuten dauern.
+                        <strong>Duplikate:</strong> Mitglieder mit gleichem Namen und Geburtsdatum werden übersprungen.
                     </small>
                 </div>
             </div>
@@ -142,12 +180,29 @@ document.addEventListener('DOMContentLoaded', function() {
     fileInput.addEventListener('change', function() {
         if (this.files.length > 0) {
             const file = this.files[0];
+            
+            // CSV-Datei validieren
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                uploadText.innerHTML = `
+                    <i class="fas fa-times-circle text-danger"></i>
+                    Fehler: Nur CSV-Dateien sind erlaubt
+                `;
+                filePreview.innerHTML = `
+                    <div class="mt-3 text-danger">
+                        <strong>Ungültige Datei:</strong> ${file.name}<br>
+                        <small>Bitte konvertieren Sie Excel-Dateien zu CSV.</small>
+                    </div>
+                `;
+                this.value = ''; // Input leeren
+                return;
+            }
+            
             uploadText.innerHTML = `
                 <i class="fas fa-check-circle text-success"></i>
-                Datei ausgewählt: ${file.name}
+                CSV-Datei ausgewählt: ${file.name}
             `;
             filePreview.innerHTML = `
-                <div class="mt-3">
+                <div class="mt-3 text-success">
                     <strong>${file.name}</strong><br>
                     <small class="text-muted">${(file.size / 1024).toFixed(1)} KB</small>
                 </div>
@@ -158,8 +213,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Drag and drop handlers
     uploadArea.addEventListener('dragover', function(e) {
         e.preventDefault();
-        uploadArea.style.borderColor = '#007bff';
-        uploadArea.style.backgroundColor = 'rgba(0, 123, 255, 0.05)';
+        uploadArea.style.borderColor = '#28a745';
+        uploadArea.style.backgroundColor = 'rgba(40, 167, 69, 0.05)';
     });
     
     uploadArea.addEventListener('dragleave', function(e) {
@@ -175,10 +230,46 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const files = e.dataTransfer.files;
         if (files.length > 0) {
+            const file = files[0];
+            
+            // CSV-Validierung auch bei Drag & Drop
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                uploadText.innerHTML = `
+                    <i class="fas fa-times-circle text-danger"></i>
+                    Fehler: Nur CSV-Dateien sind erlaubt
+                `;
+                return;
+            }
+            
             fileInput.files = files;
             fileInput.dispatchEvent(new Event('change'));
         }
     });
 });
 </script>
+
+<style>
+.file-upload-area {
+    border: 2px dashed #ced4da;
+    border-radius: 0.375rem;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: #f8f9fa;
+}
+
+.file-upload-area:hover {
+    border-color: #28a745;
+    background-color: rgba(40, 167, 69, 0.05);
+}
+
+.upload-content {
+    pointer-events: none;
+}
+
+input[type="file"] {
+    display: none;
+}
+</style>
 {% endblock %}

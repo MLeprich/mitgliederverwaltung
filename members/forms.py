@@ -190,14 +190,14 @@ class MemberForm(forms.ModelForm):
         return cleaned_data
 
 class ImportForm(forms.Form):
-    """Form für Datenimport"""
+    """Form für CSV-Datenimport"""
     
     file = forms.FileField(
-        label="Import-Datei",
-        help_text="CSV oder Excel-Datei mit Mitgliederdaten",
+        label="CSV-Datei",
+        help_text="CSV-Datei mit Mitgliederdaten (UTF-8 kodiert)",
         widget=forms.FileInput(attrs={
             'class': 'form-control',
-            'accept': '.csv,.xlsx,.xls'
+            'accept': '.csv'  # Nur CSV
         })
     )
     
@@ -207,9 +207,8 @@ class ImportForm(forms.Form):
             if file.size > 10 * 1024 * 1024:
                 raise ValidationError("Datei ist zu groß. Maximale Größe: 10MB")
             
-            allowed_extensions = ['.csv', '.xlsx', '.xls']
-            ext = os.path.splitext(file.name)[1].lower()
-            if ext not in allowed_extensions:
-                raise ValidationError(f"Nur {', '.join(allowed_extensions)} Dateien erlaubt.")
+            # Nur CSV erlaubt
+            if not file.name.lower().endswith('.csv'):
+                raise ValidationError("Nur CSV-Dateien sind erlaubt. Bitte konvertieren Sie Excel-Dateien zu CSV.")
         
         return file

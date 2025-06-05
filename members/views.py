@@ -208,90 +208,64 @@ def import_data(request):
     return render(request, 'members/import.html', {'form': form})
 
 def process_import(request, file):
-    """Verarbeitung der Import-Datei mit korrekter Excel-Datumsbehandlung"""
+    """CSV-Only Import - Einfach und zuverlässig"""
     from datetime import datetime, date
-    import re
+    import csv
+    import io
     
     try:
-        # Datei lesen mit korrekter Kodierung
-        if file.name.endswith('.csv'):
-            # Verschiedene Kodierungen probieren
-            try:
-                df = pd.read_csv(file, encoding='utf-8-sig')  # UTF-8 mit BOM
-            except UnicodeDecodeError:
-                try:
-                    df = pd.read_csv(file, encoding='utf-8')
-                except UnicodeDecodeError:
-                    try:
-                        df = pd.read_csv(file, encoding='iso-8859-1')
-                    except UnicodeDecodeError:
-                        df = pd.read_csv(file, encoding='cp1252')
-        else:
-            # Excel-Datei mit korrekter Datumsbehandlung
-            # parse_dates=True für automatische Datumserkennung
-            df = pd.read_excel(file, parse_dates=True)
+        # NUR CSV-Dateien verarbeiten
+        if not file.name.endswith('.csv'):
+            messages.error(request, 'Nur CSV-Dateien werden unterstützt. Bitte konvertieren Sie Ihre Excel-Datei zu CSV.')
+            return redirect('members:import_data')
         
-        # Spalten normalisieren (Umlaute und Sonderzeichen berücksichtigen)
-        df.columns = df.columns.str.strip()
+        # CSV mit verschiedenen Kodierungen probieren
+        file_content = None
+        encodings_to_try = ['utf-8-sig', 'utf-8', 'iso-8859-1', 'cp1252']
+        
+        for encoding in encodings_to_try:
+            try:
+                file.seek(0)  # Zurück zum Anfang
+                file_content = file.read().decode(encoding)
+                print(f"✅ Erfolgreich gelesen mit Kodierung: {encoding}")
+                break
+            except UnicodeDecodeError:
+                continue
+        
+        if not file_content:
+            messages.error(request, 'Datei konnte nicht gelesen werden. Bitte prüfen Sie die Kodierung.')
+            return redirect('members:import_data')
+        
+        # CSV parsen
+        csv_reader = csv.DictReader(io.StringIO(file_content))
+        
+        # Spalten normalisieren
+        fieldnames = [col.strip() for col in csv_reader.fieldnames]
         
         successful_imports = 0
         failed_imports = 0
         errors = []
         
-        print(f"Import gestartet. Gefundene Spalten: {list(df.columns)}")
+        print(f"CSV Import gestartet. Gefundene Spalten: {fieldnames}")
         
-        # VERBESSERTE Datums-Konvertierungsfunktion
-        def smart_date_conversion(date_value):
-            """Intelligente Datumskonvertierung für verschiedene Formate - gibt IMMER ein date-Objekt zurück"""
-            if pd.isna(date_value) or not date_value:
+        # Einfache Datums-Konvertierung für CSV
+        def parse_csv_date(date_str):
+            """Einfache, robuste Datumskonvertierung für CSV-Strings"""
+            if not date_str or str(date_str).strip() in ['', 'nan', 'None', 'null']:
                 return None
             
-            # Fall 1: Bereits ein date-Objekt
-            if isinstance(date_value, date):
-                return date_value
+            date_str = str(date_str).strip()
+            print(f"    Datums-String: '{date_str}'")
             
-            # Fall 2: pandas Timestamp - WICHTIGSTER FALL für Excel!
-            if isinstance(date_value, pd.Timestamp):
-                return date_value.date()
-            
-            # Fall 3: datetime-Objekt
-            if isinstance(date_value, datetime):
-                return date_value.date()
-            
-            # Fall 4: Python datetime-Objekt mit date() Methode
-            if hasattr(date_value, 'date') and callable(getattr(date_value, 'date')):
-                return date_value.date()
-            
-            # Fall 5: Excel Datum als Zahl (Serial Number)
-            if isinstance(date_value, (int, float)) and 1 <= date_value <= 100000:
-                try:
-                    # Excel-Datum als Seriennummer (Tage seit 1900-01-01)
-                    base_date = datetime(1899, 12, 30)  # Korrigiertes Basisdatum
-                    excel_date = base_date + pd.Timedelta(days=date_value)
-                    return excel_date.date()
-                except:
-                    pass
-            
-            # Fall 6: String-Wert
-            date_str = str(date_value).strip()
-            
-            # Leerer String
-            if not date_str or date_str.lower() in ['nan', 'none', 'null', '']:
-                return None
-            
-            # Versuchsreihenfolge für verschiedene String-Formate:
+            # Deutsche Formate probieren (häufigste in CSV)
             formats_to_try = [
-                # ISO Format (höchste Priorität)
-                '%Y-%m-%d',
-                # Deutsches Format
-                '%d.%m.%Y',
-                '%d.%m.%y',
-                # Amerikanisches Format (für Excel-Strings)
-                '%m/%d/%Y',
-                '%m/%d/%y',
-                # Weitere Formate
-                '%d/%m/%Y',
-                '%d/%m/%y',
+                '%d.%m.%Y',      # 15.08.1989
+                '%d.%m.%y',      # 15.08.89
+                '%d/%m/%Y',      # 15/08/1989
+                '%d/%m/%y',      # 15/08/89
+                '%Y-%m-%d',      # 1989-08-15 (ISO)
+                '%m/%d/%Y',      # 08/15/1989 (US)
+                '%m/%d/%y',      # 08/15/89 (US)
             ]
             
             for fmt in formats_to_try:
@@ -299,234 +273,157 @@ def process_import(request, file):
                     parsed_date = datetime.strptime(date_str, fmt).date()
                     
                     # 2-stellige Jahre korrigieren
-                    if parsed_date.year < 1950:  # Vermutlich 20xx gemeint
+                    if parsed_date.year < 1950:
                         parsed_date = parsed_date.replace(year=parsed_date.year + 100)
                     
+                    print(f"    ✅ Erfolgreich geparst mit Format {fmt}: {parsed_date}")
                     return parsed_date
                 except ValueError:
                     continue
             
-            # Letzter Versuch mit pandas - aber IMMER .date() verwenden!
-            try:
-                # Amerikanisches Format probieren (MM/DD/YY)
-                parsed_pd = pd.to_datetime(date_str, format='%m/%d/%y', errors='coerce')
-                if not pd.isna(parsed_pd):
-                    return parsed_pd.date()  # .date() hinzugefügt!
-            except:
-                pass
-            
-            try:
-                # Deutsches Format probieren (DD.MM.YYYY)
-                parsed_pd = pd.to_datetime(date_str, format='%d.%m.%Y', errors='coerce')
-                if not pd.isna(parsed_pd):
-                    return parsed_pd.date()  # .date() hinzugefügt!
-            except:
-                pass
-            
-            # Allgemeine pandas Konvertierung als letzter Ausweg
-            try:
-                parsed_pd = pd.to_datetime(date_str, errors='coerce')
-                if not pd.isna(parsed_pd):
-                    return parsed_pd.date()  # .date() hinzugefügt!
-            except:
-                pass
-            
-            print(f"WARNING: Konnte Datum nicht konvertieren: '{date_str}' (Typ: {type(date_value)})")
+            print(f"    ❌ Konnte nicht geparst werden")
             return None
         
-        for index, row in df.iterrows():
+        row_number = 1  # Header ist Zeile 1
+        
+        for row in csv_reader:
+            row_number += 1
             try:
+                print(f"\n=== ZEILE {row_number} ===")
+                
+                # Daten aus CSV extrahieren
                 member_data = {}
                 
-                # Grundlegende Datenfelder zuordnen
-                basic_mapping = {
-                    'Vorname': 'first_name',
-                    'Nachname': 'last_name', 
-                    'Geburtsdatum': 'birth_date',
-                    'Personalnummer': 'personnel_number',
-                    'Ausweisnummer_Praefix': 'card_number_prefix',
-                    'Ausweisnummer-Präfix': 'card_number_prefix',
-                    'Ausgestellt_am': 'issued_date',
-                    'Ausgestellt am': 'issued_date',
-                    'Gueltig_bis': 'valid_until',
-                    'Gültig bis': 'valid_until',
-                    'Manuelle_Gueltigkeit': 'manual_validity',
-                    'Manuelle Gültigkeit': 'manual_validity',
+                # Grundlegende Felder mit verschiedenen möglichen Spaltennamen
+                field_mappings = {
+                    'first_name': ['Vorname', 'vorname', 'First Name', 'FirstName'],
+                    'last_name': ['Nachname', 'nachname', 'Last Name', 'LastName'],
+                    'birth_date': ['Geburtsdatum', 'geburtsdatum', 'Birth Date', 'BirthDate'],
+                    'personnel_number': ['Personalnummer', 'personalnummer', 'Personnel Number', 'PersonnelNumber'],
+                    'member_type': ['Mitarbeitertyp_Code', 'Mitarbeitertyp Code', 'Member Type'],
                 }
                 
-                for col in df.columns:
-                    if col in basic_mapping and pd.notna(row[col]):
-                        field_name = basic_mapping[col]
-                        value = row[col]
-                        
-                        # Spezielle Behandlung für manual_validity
-                        if field_name == 'manual_validity':
-                            if isinstance(value, str):
-                                member_data[field_name] = value.lower() in ['ja', 'yes', 'true', '1', 'wahr']
-                            else:
-                                member_data[field_name] = bool(value)
-                        else:
-                            member_data[field_name] = value
+                # Felder zuordnen
+                for field, possible_names in field_mappings.items():
+                    for name in possible_names:
+                        if name in row and row[name] and str(row[name]).strip():
+                            member_data[field] = str(row[name]).strip()
+                            break
                 
-                # MITARBEITERTYP-BEHANDLUNG
-                member_type_value = 'FF'  # Standard
+                print(f"Gefundene Daten: {member_data}")
                 
-                # 1. Prüfe zuerst Mitarbeitertyp_Code (hat Priorität)  
-                if 'Mitarbeitertyp_Code' in df.columns and pd.notna(row['Mitarbeitertyp_Code']):
-                    code_value = str(row['Mitarbeitertyp_Code']).upper().strip()
-                    valid_types = ['BF', 'FF', 'JF', 'STADT', 'EXTERN', 'PRAKTIKANT']
-                    if code_value in valid_types:
-                        member_type_value = code_value
-
-                # 2. Falls kein gültiger Code, prüfe Mitarbeitertyp (Text)
-                if member_type_value == 'FF' and 'Mitarbeitertyp' in df.columns and pd.notna(row['Mitarbeitertyp']):
-                    text_value = str(row['Mitarbeitertyp']).strip()
-                    type_mapping = {
-                        'Berufsfeuerwehr': 'BF',
-                        'Freiwillige Feuerwehr': 'FF',
-                        'Jugendfeuerwehr': 'JF', 
-                        'Stadt': 'STADT',
-                        'Extern': 'EXTERN',
-                        'Praktikant': 'PRAKTIKANT'
-                    }
-                    if text_value in type_mapping:
-                        member_type_value = type_mapping[text_value]
-
-                member_data['member_type'] = member_type_value
-                
-                # Validierung der Pflichtfelder
-                if not all(k in member_data for k in ['first_name', 'last_name']):
-                    errors.append(f"Zeile {index + 2}: Vor- und Nachname sind Pflichtfelder")
+                # Pflichtfelder prüfen
+                if not member_data.get('first_name') or not member_data.get('last_name'):
+                    errors.append(f"Zeile {row_number}: Vor- und Nachname sind Pflichtfelder")
                     failed_imports += 1
                     continue
                 
-                # GEBURTSDATUM MIT INTELLIGENTER KONVERTIERUNG
-                if 'birth_date' in member_data:
-                    raw_birth_date = member_data['birth_date']
-                    converted_date = smart_date_conversion(raw_birth_date)
-                    
-                    print(f"Debug: Zeile {index+2} - '{member_data['first_name']} {member_data['last_name']}' - Geburtsdatum: '{raw_birth_date}' (Typ: {type(raw_birth_date)}) → {converted_date}")
-                    
-                    if converted_date:
-                        # Sicherstellen, dass es ein Python date-Objekt ist
-                        if not isinstance(converted_date, date):
-                            print(f"ERROR: Konvertiertes Datum ist kein date-Objekt: {converted_date} (Typ: {type(converted_date)})")
-                            errors.append(f"Zeile {index + 2}: Ungültiges Geburtsdatum: {raw_birth_date}")
-                            failed_imports += 1
-                            continue
-                        
-                        # WICHTIG: Datum SOFORT nach Konvertierung setzen
-                        member_data['birth_date'] = converted_date
-                        
-                        # Validierung Geburtsdatum
-                        birth_date = converted_date
-                        today = date.today()
-                        age = today.year - birth_date.year - (
-                            (today.month, today.day) < (birth_date.month, birth_date.day)
-                        )
-                        
-                        if age < 14:  # Jugendfeuerwehr ab 14
-                            errors.append(f"Zeile {index + 2}: Mitglied muss mindestens 14 Jahre alt sein (Alter: {age})")
-                            failed_imports += 1
-                            continue
-                        if age > 100:
-                            errors.append(f"Zeile {index + 2}: Unplausibles Alter: {age} Jahre")
-                            failed_imports += 1
-                            continue
-                        if birth_date > today:
-                            errors.append(f"Zeile {index + 2}: Geburtsdatum kann nicht in der Zukunft liegen")
-                            failed_imports += 1
-                            continue
-                    else:
-                        errors.append(f"Zeile {index + 2}: Ungültiges Geburtsdatum: {raw_birth_date}")
-                        failed_imports += 1
-                        continue
+                # Geburtsdatum konvertieren
+                birth_date_str = member_data.get('birth_date')
+                if not birth_date_str:
+                    errors.append(f"Zeile {row_number}: Geburtsdatum fehlt")
+                    failed_imports += 1
+                    continue
+                
+                print(f"  Geburtsdatum roh: '{birth_date_str}'")
+                birth_date = parse_csv_date(birth_date_str)
+                
+                if not birth_date:
+                    errors.append(f"Zeile {row_number}: Ungültiges Geburtsdatum: '{birth_date_str}'")
+                    failed_imports += 1
+                    continue
+                
+                # Geburtsdatum validieren
+                today = date.today()
+                age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+                
+                if age < 14:
+                    errors.append(f"Zeile {row_number}: Mitglied muss mindestens 14 Jahre alt sein (Alter: {age})")
+                    failed_imports += 1
+                    continue
+                
+                if age > 100:
+                    errors.append(f"Zeile {row_number}: Unplausibles Alter: {age} Jahre")
+                    failed_imports += 1
+                    continue
+                
+                if birth_date > today:
+                    errors.append(f"Zeile {row_number}: Geburtsdatum kann nicht in der Zukunft liegen")
+                    failed_imports += 1
+                    continue
+                
+                # Mitarbeitertyp bestimmen
+                member_type = member_data.get('member_type', 'FF')
+                
+                # Text zu Code konvertieren falls nötig
+                type_mapping = {
+                    'Berufsfeuerwehr': 'BF',
+                    'Freiwillige Feuerwehr': 'FF',
+                    'Jugendfeuerwehr': 'JF',
+                    'Stadt': 'STADT',
+                    'Extern': 'EXTERN',
+                    'Praktikant': 'PRAKTIKANT'
+                }
+                
+                if member_type in type_mapping:
+                    member_type = type_mapping[member_type]
+                elif member_type.upper() in ['BF', 'FF', 'JF', 'STADT', 'EXTERN', 'PRAKTIKANT']:
+                    member_type = member_type.upper()
                 else:
-                    errors.append(f"Zeile {index + 2}: Geburtsdatum fehlt")
-                    failed_imports += 1
-                    continue
+                    member_type = 'FF'  # Standard
                 
-                # Ausstellungsdatum nur setzen wenn vorhanden
-                if 'issued_date' in member_data and member_data['issued_date']:
-                    converted_issued = smart_date_conversion(member_data['issued_date'])
-                    if converted_issued and isinstance(converted_issued, date):
-                        member_data['issued_date'] = converted_issued
-                    else:
-                        # Ungültiges Datum -> entfernen
-                        del member_data['issued_date']
-                
-                # Gültig bis Datum verarbeiten
-                if 'valid_until' in member_data and member_data['valid_until']:
-                    converted_valid = smart_date_conversion(member_data['valid_until'])
-                    if converted_valid and isinstance(converted_valid, date):
-                        member_data['valid_until'] = converted_valid
-                    else:
-                        del member_data['valid_until']
-                
-                # Ausweisnummer-Präfix validieren
-                if 'card_number_prefix' in member_data:
-                    valid_prefixes = ['FF', 'JF', '']
-                    prefix_str = str(member_data['card_number_prefix']).upper().strip()
-                    if prefix_str in valid_prefixes:
-                        member_data['card_number_prefix'] = prefix_str
-                    else:
-                        member_data['card_number_prefix'] = ''
-                
-                # Prüfen auf Duplikate - NACH der Datumskonvertierung!
-                # Sicherstellen, dass birth_date ein date-Objekt ist
-                check_birth_date = member_data['birth_date']
-                if not isinstance(check_birth_date, date):
-                    print(f"ERROR: birth_date ist noch kein date-Objekt vor Duplikat-Check: {check_birth_date} (Typ: {type(check_birth_date)})")
-                    errors.append(f"Zeile {index + 2}: Interner Fehler bei Datumskonvertierung")
-                    failed_imports += 1
-                    continue
-                
+                # Duplikat-Prüfung
                 existing = Member.objects.filter(
                     first_name__iexact=member_data['first_name'],
                     last_name__iexact=member_data['last_name'],
-                    birth_date=check_birth_date  # Jetzt garantiert ein date-Objekt
+                    birth_date=birth_date
                 ).first()
                 
                 if existing:
-                    errors.append(f"Duplikat: {member_data['first_name']} {member_data['last_name']} ({member_data['birth_date']}) existiert bereits")
+                    errors.append(f"Zeile {row_number}: Duplikat - {member_data['first_name']} {member_data['last_name']} ({birth_date}) existiert bereits")
                     failed_imports += 1
                     continue
                 
-                # Ausweisnummer löschen wenn vorhanden (wird automatisch generiert)
-                member_data.pop('card_number', None)
+                # Member-Objekt erstellen
+                final_data = {
+                    'first_name': member_data['first_name'],
+                    'last_name': member_data['last_name'],
+                    'birth_date': birth_date,
+                    'member_type': member_type,
+                    'personnel_number': member_data.get('personnel_number', ''),
+                    'is_active': True,
+                }
                 
-                # Debug-Ausgabe
-                if successful_imports < 5:
-                    print(f"Import {successful_imports + 1}: {member_data}")
+                # Leere Strings zu None konvertieren
+                if not final_data['personnel_number']:
+                    final_data['personnel_number'] = None
                 
-                # Mitglied erstellen
-                Member.objects.create(**member_data)
+                print(f"  Finale Daten: {final_data}")
+                
+                # In Datenbank speichern
+                new_member = Member.objects.create(**final_data)
+                print(f"  ✅ Erfolgreich erstellt: {new_member}")
+                
                 successful_imports += 1
                 
             except Exception as e:
                 import traceback
-                print(f"ERROR in row {index + 2}: {str(e)}")
+                print(f"❌ FEHLER in Zeile {row_number}: {str(e)}")
                 print(traceback.format_exc())
-                errors.append(f"Zeile {index + 2}: {str(e)}")
+                errors.append(f"Zeile {row_number}: {str(e)}")
                 failed_imports += 1
         
-        # Erfolgsmeldung
+        # Ergebnisse anzeigen
         if successful_imports > 0:
             messages.success(request, f'{successful_imports} Mitglieder erfolgreich importiert.')
         
         if failed_imports > 0:
-            error_msg = f'{failed_imports} Einträge konnten nicht importiert werden:\n' + '\n'.join(errors[:10])
+            error_msg = f'{failed_imports} Einträge konnten nicht importiert werden:\n'
+            error_msg += '\n'.join(errors[:10])
             if len(errors) > 10:
                 error_msg += f'\n... und {len(errors) - 10} weitere Fehler'
             messages.error(request, error_msg)
         
-        return redirect('members:import_data')
-        
-    except Exception as e:
-        import traceback
-        print(f"CRITICAL ERROR: {str(e)}")
-        print(traceback.format_exc())
-        messages.error(request, f'Fehler beim Import: {str(e)}')
         return redirect('members:import_data')
 
 @login_required
@@ -615,14 +512,14 @@ def export_data(request):
 
 @login_required
 def download_template(request):
-    """Download einer erweiterten Beispiel-CSV für den Import"""
+    """Download einer CSV-Vorlage für den Import"""
     response = HttpResponse(content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = 'attachment; filename="import_vorlage.csv"'
     
     # UTF-8 BOM für Excel-Kompatibilität
     response.write('\ufeff')
     
-    # Beispieldaten mit allen neuen Feldern
+    # Beispieldaten mit klaren deutschen Spaltennamen
     template_data = [
         {
             'Vorname': 'Max',
@@ -630,9 +527,6 @@ def download_template(request):
             'Geburtsdatum': '01.01.1990',
             'Personalnummer': '12345',
             'Mitarbeitertyp_Code': 'BF',
-            'Ausweisnummer_Praefix': '',  # BF bekommt keinen Präfix
-            'Ausgestellt_am': '01.01.2024',
-            'Manuelle_Gueltigkeit': 'Nein'
         },
         {
             'Vorname': 'Maria',
@@ -640,9 +534,6 @@ def download_template(request):
             'Geburtsdatum': '15.06.1985',
             'Personalnummer': '',
             'Mitarbeitertyp_Code': 'FF',
-            'Ausweisnummer_Praefix': 'FF',  # FF bekommt Präfix
-            'Ausgestellt_am': '15.01.2024',
-            'Manuelle_Gueltigkeit': 'Nein'
         },
         {
             'Vorname': 'Klaus',
@@ -650,9 +541,6 @@ def download_template(request):
             'Geburtsdatum': '22.03.1988',
             'Personalnummer': '67890',
             'Mitarbeitertyp_Code': 'STADT',
-            'Ausweisnummer_Praefix': '',  # STADT bekommt keinen Präfix
-            'Ausgestellt_am': '01.03.2024',
-            'Manuelle_Gueltigkeit': 'Nein'
         },
         {
             'Vorname': 'Anna',
@@ -660,9 +548,6 @@ def download_template(request):
             'Geburtsdatum': '15.08.1995',
             'Personalnummer': '',
             'Mitarbeitertyp_Code': 'JF',
-            'Ausweisnummer_Praefix': 'JF',  # JF bekommt Präfix
-            'Ausgestellt_am': '01.03.2024',
-            'Manuelle_Gueltigkeit': 'Nein'
         }
     ]
     
@@ -671,7 +556,7 @@ def download_template(request):
     writer.writerows(template_data)
     
     return response
-
+    
 @login_required
 def member_list_valid(request):
     """Zeigt nur Mitglieder mit gültigen Ausweisen"""
