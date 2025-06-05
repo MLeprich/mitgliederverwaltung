@@ -22,10 +22,14 @@ class MemberForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'Nachname eingeben'
             }),
-            'birth_date': forms.DateInput(attrs={
-                'class': 'form-control',
-                'type': 'date'
-            }),
+            # ✅ KORRIGIERT: DateInput mit HTML5 date type und korrektem Format
+            'birth_date': forms.DateInput(
+                attrs={
+                    'class': 'form-control',
+                    'type': 'date'
+                },
+                format='%Y-%m-%d'  # ✅ HTML5 Format erzwingen
+            ),
             'personnel_number': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Optional'
@@ -37,15 +41,23 @@ class MemberForm(forms.ModelForm):
             'card_number_prefix': forms.Select(attrs={
                 'class': 'form-select'
             }),
-            'issued_date': forms.DateInput(attrs={
-                'class': 'form-control',
-                'type': 'date',
-                'onchange': 'updateValidUntil()'
-            }),
-            'valid_until': forms.DateInput(attrs={
-                'class': 'form-control',
-                'type': 'date'
-            }),
+            # ✅ KORRIGIERT: issued_date mit HTML5 Format
+            'issued_date': forms.DateInput(
+                attrs={
+                    'class': 'form-control',
+                    'type': 'date',
+                    'onchange': 'updateValidUntil()'
+                },
+                format='%Y-%m-%d'  # ✅ HTML5 Format erzwingen
+            ),
+            # ✅ KORRIGIERT: valid_until mit HTML5 Format
+            'valid_until': forms.DateInput(
+                attrs={
+                    'class': 'form-control',
+                    'type': 'date'
+                },
+                format='%Y-%m-%d'  # ✅ HTML5 Format erzwingen
+            ),
             'manual_validity': forms.CheckboxInput(attrs={
                 'class': 'form-check-input',
                 'onchange': 'toggleManualValidity()'
@@ -75,6 +87,11 @@ class MemberForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        
+        # ✅ WICHTIG: HTML5 date format für alle Django Datumsfelder setzen
+        self.fields['birth_date'].input_formats = ['%Y-%m-%d']
+        self.fields['issued_date'].input_formats = ['%Y-%m-%d'] 
+        self.fields['valid_until'].input_formats = ['%Y-%m-%d']
         
         # Bessere Hilftexte für Profilbild
         self.fields['profile_picture'].help_text = (

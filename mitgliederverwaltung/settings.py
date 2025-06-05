@@ -90,6 +90,24 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Internationalization
+# Datum- und Zeitformate
+USE_L10N = True  # Lokalisierung aktivieren
+USE_TZ = True    # Zeitzone verwenden
+
+# HTML5 date input format (wichtig für Forms)
+DATE_INPUT_FORMATS = [
+    '%Y-%m-%d',      # HTML5 date format (wichtigste)
+    '%d.%m.%Y',      # Deutsches Format als Fallback
+    '%d/%m/%Y',      # Alternative
+    '%d-%m-%Y',      # Alternative
+]
+
+# Anzeige-Format für Templates (deutsch)
+DATE_FORMAT = 'd.m.Y'
+DATETIME_FORMAT = 'd.m.Y H:i'
+SHORT_DATE_FORMAT = 'd.m.y'
+
+# Sprache und Lokalisierung
 LANGUAGE_CODE = 'de-de'
 TIME_ZONE = 'Europe/Berlin'
 USE_I18N = True

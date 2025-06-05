@@ -104,47 +104,9 @@ class Member(models.Model):
     def save(self, *args, **kwargs):
         """Überschreibt save() für automatische Generierung und Datumsvalidierung"""
         
-        # Sicherstellung dass alle Datumsfelder echte date-Objekte sind
-        if self.birth_date and isinstance(self.birth_date, str):
-            print(f"WARNING: birth_date ist String: {self.birth_date}")
-            # Konvertierung von String zu date falls nötig
-            from datetime import datetime
-            try:
-                # Verschiedene Formate probieren
-                for fmt in ['%Y-%m-%d', '%d.%m.%Y', '%m/%d/%Y', '%m/%d/%y']:
-                    try:
-                        self.birth_date = datetime.strptime(self.birth_date, fmt).date()
-                        break
-                    except ValueError:
-                        continue
-            except:
-                print(f"ERROR: Konnte birth_date nicht konvertieren: {self.birth_date}")
-        
-        if self.issued_date and isinstance(self.issued_date, str):
-            print(f"WARNING: issued_date ist String: {self.issued_date}")
-            from datetime import datetime
-            try:
-                for fmt in ['%Y-%m-%d', '%d.%m.%Y', '%m/%d/%Y', '%m/%d/%y']:
-                    try:
-                        self.issued_date = datetime.strptime(self.issued_date, fmt).date()
-                        break
-                    except ValueError:
-                        continue
-            except:
-                print(f"ERROR: Konnte issued_date nicht konvertieren: {self.issued_date}")
-        
-        if self.valid_until and isinstance(self.valid_until, str):
-            print(f"WARNING: valid_until ist String: {self.valid_until}")
-            from datetime import datetime
-            try:
-                for fmt in ['%Y-%m-%d', '%d.%m.%Y', '%m/%d/%Y', '%m/%d/%y']:
-                    try:
-                        self.valid_until = datetime.strptime(self.valid_until, fmt).date()
-                        break
-                    except ValueError:
-                        continue
-            except:
-                print(f"ERROR: Konnte valid_until nicht konvertieren: {self.valid_until}")
+        # ❌ ENTFERNT: Überflüssige String-zu-Date Konvertierung
+        # Diese Konvertierung ist nicht nötig, da Django und unser Import bereits 
+        # echte date-Objekte liefern sollten
         
         # Ausweisnummer generieren falls noch nicht vorhanden
         if not self.card_number:
@@ -379,6 +341,8 @@ class Member(models.Model):
     
     @property
     def age(self):
+        if not self.birth_date:
+            return 0
         today = date.today()
         return today.year - self.birth_date.year - (
             (today.month, today.day) < (self.birth_date.month, self.birth_date.day)
@@ -386,14 +350,23 @@ class Member(models.Model):
     
     @property
     def is_card_expired(self):
+        # ✅ KORRIGIERT: None-Check hinzugefügt
+        if not self.valid_until:
+            return False  # Kein Ablaufdatum = nicht abgelaufen
         return date.today() > self.valid_until
     
     @property
     def expires_soon(self):
+        # ✅ KORRIGIERT: None-Check hinzugefügt
+        if not self.valid_until:
+            return False  # Kein Ablaufdatum = läuft nicht bald ab
         return date.today() + timedelta(days=30) > self.valid_until
     
     def get_card_status(self):
-        if self.is_card_expired:
+        # ✅ KORRIGIERT: None-Check hinzugefügt
+        if not self.valid_until:
+            return "Kein Ablaufdatum"
+        elif self.is_card_expired:
             return "Abgelaufen"
         elif self.expires_soon:
             return "Läuft bald ab"

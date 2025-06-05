@@ -208,7 +208,7 @@ def import_data(request):
     return render(request, 'members/import.html', {'form': form})
 
 def process_import(request, file):
-    """CSV-Only Import - Einfach und zuverlässig"""
+    """CSV-Only Import - Einfach und zuverlässig mit korrigierter Datumsbehandlung"""
     from datetime import datetime, date
     import csv
     import io
@@ -248,9 +248,9 @@ def process_import(request, file):
         
         print(f"CSV Import gestartet. Gefundene Spalten: {fieldnames}")
         
-        # Einfache Datums-Konvertierung für CSV
+        # Verbesserte Datums-Konvertierung für CSV
         def parse_csv_date(date_str):
-            """Einfache, robuste Datumskonvertierung für CSV-Strings"""
+            """Robuste Datumskonvertierung - gibt echtes date-Objekt zurück"""
             if not date_str or str(date_str).strip() in ['', 'nan', 'None', 'null']:
                 return None
             
@@ -259,13 +259,13 @@ def process_import(request, file):
             
             # Deutsche Formate probieren (häufigste in CSV)
             formats_to_try = [
-                '%d.%m.%Y',      # 15.08.1989
-                '%d.%m.%y',      # 15.08.89
-                '%d/%m/%Y',      # 15/08/1989
-                '%d/%m/%y',      # 15/08/89
-                '%Y-%m-%d',      # 1989-08-15 (ISO)
-                '%m/%d/%Y',      # 08/15/1989 (US)
-                '%m/%d/%y',      # 08/15/89 (US)
+                '%d.%m.%Y',      # 02.06.1977
+                '%d.%m.%y',      # 02.06.77
+                '%d/%m/%Y',      # 02/06/1977
+                '%d/%m/%y',      # 02/06/77
+                '%Y-%m-%d',      # 1977-06-02 (ISO)
+                '%m/%d/%Y',      # 06/02/1977 (US)
+                '%m/%d/%y',      # 06/02/77 (US)
             ]
             
             for fmt in formats_to_try:
@@ -294,20 +294,27 @@ def process_import(request, file):
                 # Daten aus CSV extrahieren
                 member_data = {}
                 
-                # Grundlegende Felder mit verschiedenen möglichen Spaltennamen
+                # Erweiterte Spaltenzuordnung für deine CSV
                 field_mappings = {
                     'first_name': ['Vorname', 'vorname', 'First Name', 'FirstName'],
                     'last_name': ['Nachname', 'nachname', 'Last Name', 'LastName'],
                     'birth_date': ['Geburtsdatum', 'geburtsdatum', 'Birth Date', 'BirthDate'],
                     'personnel_number': ['Personalnummer', 'personalnummer', 'Personnel Number', 'PersonnelNumber'],
                     'member_type': ['Mitarbeitertyp_Code', 'Mitarbeitertyp Code', 'Member Type'],
+                    'card_number_prefix': ['Ausweisnummer_Praefix', 'Ausweisnummer Praefix', 'Card Number Prefix'],
+                    'issued_date': ['Ausgestellt_am', 'Ausgestellt am', 'Issued Date'],
+                    'valid_until': ['Gueltig_bis', 'Gueltig bis', 'Valid Until'],
+                    'manual_validity': ['Manuelle_Gueltigkeit', 'Manuelle Gueltigkeit', 'Manual Validity'],
+                    'is_active': ['Aktiv', 'aktiv', 'Active', 'Is Active'],
                 }
                 
                 # Felder zuordnen
                 for field, possible_names in field_mappings.items():
                     for name in possible_names:
                         if name in row and row[name] and str(row[name]).strip():
-                            member_data[field] = str(row[name]).strip()
+                            value = str(row[name]).strip()
+                            if value.lower() not in ['', 'nan', 'none', 'null']:
+                                member_data[field] = value
                             break
                 
                 print(f"Gefundene Daten: {member_data}")
@@ -318,7 +325,7 @@ def process_import(request, file):
                     failed_imports += 1
                     continue
                 
-                # Geburtsdatum konvertieren
+                # Geburtsdatum konvertieren - WICHTIG: Als date-Objekt speichern
                 birth_date_str = member_data.get('birth_date')
                 if not birth_date_str:
                     errors.append(f"Zeile {row_number}: Geburtsdatum fehlt")
@@ -384,21 +391,40 @@ def process_import(request, file):
                     failed_imports += 1
                     continue
                 
-                # Member-Objekt erstellen
+                # Optional: Andere Datumsfelder konvertieren
+                issued_date = None
+                if member_data.get('issued_date'):
+                    issued_date = parse_csv_date(member_data['issued_date'])
+                
+                valid_until = None
+                if member_data.get('valid_until'):
+                    valid_until = parse_csv_date(member_data['valid_until'])
+                
+                # Boolean-Felder konvertieren
+                manual_validity = False
+                if member_data.get('manual_validity'):
+                    manual_validity = member_data['manual_validity'].lower() in ['ja', 'yes', 'true', '1']
+                
+                is_active = True  # Standard
+                if member_data.get('is_active'):
+                    is_active = member_data['is_active'].lower() in ['ja', 'yes', 'true', '1']
+                
+                # Member-Objekt erstellen mit ALLEN verfügbaren Daten
                 final_data = {
                     'first_name': member_data['first_name'],
                     'last_name': member_data['last_name'],
-                    'birth_date': birth_date,
+                    'birth_date': birth_date,  # ✅ Echtes date-Objekt!
                     'member_type': member_type,
-                    'personnel_number': member_data.get('personnel_number', ''),
-                    'is_active': True,
+                    'personnel_number': member_data.get('personnel_number') or None,
+                    'card_number_prefix': member_data.get('card_number_prefix', ''),
+                    'issued_date': issued_date,  # ✅ Echtes date-Objekt oder None!
+                    'valid_until': valid_until,  # ✅ Echtes date-Objekt oder None!
+                    'manual_validity': manual_validity,
+                    'is_active': is_active,
                 }
                 
-                # Leere Strings zu None konvertieren
-                if not final_data['personnel_number']:
-                    final_data['personnel_number'] = None
-                
                 print(f"  Finale Daten: {final_data}")
+                print(f"  Geburtsdatum Typ: {type(final_data['birth_date'])}")
                 
                 # In Datenbank speichern
                 new_member = Member.objects.create(**final_data)
@@ -427,7 +453,6 @@ def process_import(request, file):
         return redirect('members:import_data')
         
     except Exception as e:
-        # DIESER EXCEPT-BLOCK WAR FEHLEND - das war der Grund für den Syntax-Fehler!
         import traceback
         print(f"❌ KRITISCHER FEHLER beim CSV-Import: {str(e)}")
         print(traceback.format_exc())

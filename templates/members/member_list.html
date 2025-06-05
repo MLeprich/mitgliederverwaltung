@@ -155,14 +155,20 @@
                                 </td>
                                 <td>{{ member.personnel_number|default:"-" }}</td>
                                 <td>
-                                    {{ member.valid_until|date:"d.m.Y" }}
-                                    {% if member.manual_validity %}
-                                        <i class="fas fa-hand-paper text-info ms-1" title="Manuell gesetzt"></i>
+                                    {% if member.valid_until %}
+                                        {{ member.valid_until|date:"d.m.Y" }}
+                                        {% if member.manual_validity %}
+                                            <i class="fas fa-hand-paper text-info ms-1" title="Manuell gesetzt"></i>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
                                     {% endif %}
                                 </td>
                                 <td>
                                     {% if not member.is_active %}
                                         <span class="badge bg-secondary">Inaktiv</span>
+                                    {% elif not member.valid_until %}
+                                        <span class="badge bg-info">Kein Ablaufdatum</span>
                                     {% elif member.is_card_expired %}
                                         <span class="badge bg-danger">Abgelaufen</span>
                                     {% elif member.expires_soon %}
