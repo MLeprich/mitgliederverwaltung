@@ -102,7 +102,49 @@ class Member(models.Model):
         return f"{self.last_name}, {self.first_name} ({self.card_number})"
     
     def save(self, *args, **kwargs):
-        """Überschreibt save() für automatische Generierung"""
+        """Überschreibt save() für automatische Generierung und Datumsvalidierung"""
+        
+        # Sicherstellung dass alle Datumsfelder echte date-Objekte sind
+        if self.birth_date and isinstance(self.birth_date, str):
+            print(f"WARNING: birth_date ist String: {self.birth_date}")
+            # Konvertierung von String zu date falls nötig
+            from datetime import datetime
+            try:
+                # Verschiedene Formate probieren
+                for fmt in ['%Y-%m-%d', '%d.%m.%Y', '%m/%d/%Y', '%m/%d/%y']:
+                    try:
+                        self.birth_date = datetime.strptime(self.birth_date, fmt).date()
+                        break
+                    except ValueError:
+                        continue
+            except:
+                print(f"ERROR: Konnte birth_date nicht konvertieren: {self.birth_date}")
+        
+        if self.issued_date and isinstance(self.issued_date, str):
+            print(f"WARNING: issued_date ist String: {self.issued_date}")
+            from datetime import datetime
+            try:
+                for fmt in ['%Y-%m-%d', '%d.%m.%Y', '%m/%d/%Y', '%m/%d/%y']:
+                    try:
+                        self.issued_date = datetime.strptime(self.issued_date, fmt).date()
+                        break
+                    except ValueError:
+                        continue
+            except:
+                print(f"ERROR: Konnte issued_date nicht konvertieren: {self.issued_date}")
+        
+        if self.valid_until and isinstance(self.valid_until, str):
+            print(f"WARNING: valid_until ist String: {self.valid_until}")
+            from datetime import datetime
+            try:
+                for fmt in ['%Y-%m-%d', '%d.%m.%Y', '%m/%d/%Y', '%m/%d/%y']:
+                    try:
+                        self.valid_until = datetime.strptime(self.valid_until, fmt).date()
+                        break
+                    except ValueError:
+                        continue
+            except:
+                print(f"ERROR: Konnte valid_until nicht konvertieren: {self.valid_until}")
         
         # Ausweisnummer generieren falls noch nicht vorhanden
         if not self.card_number:
