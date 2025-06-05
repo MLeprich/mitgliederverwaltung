@@ -26,7 +26,6 @@ class Member(models.Model):
     # Ausweisnummer-Präfixe
     PREFIX_CHOICES = [
         ('', 'Kein Präfix'),
-        ('BF', 'BF'),
         ('FF', 'FF'),
         ('JF', 'JF'),
     ]
@@ -138,14 +137,42 @@ class Member(models.Model):
         return card_number
     
     def resize_image(self):
-        """Passt Profilbild auf maximale Größe an"""
+        """Passt Profilbild auf maximale Größe an und korrigiert EXIF-Orientierung"""
         try:
+            from PIL import Image, ExifTags
+            
             img = Image.open(self.profile_picture.path)
+            
+            # EXIF-Orientierung korrigieren
+            try:
+                for orientation in ExifTags.TAGS.keys():
+                    if ExifTags.TAGS[orientation] == 'Orientation':
+                        break
+                
+                exif = img._getexif()
+                if exif is not None:
+                    orientation_value = exif.get(orientation)
+                    if orientation_value == 3:
+                        img = img.rotate(180, expand=True)
+                    elif orientation_value == 6:
+                        img = img.rotate(270, expand=True)
+                    elif orientation_value == 8:
+                        img = img.rotate(90, expand=True)
+            except (AttributeError, KeyError, TypeError):
+                # Keine EXIF-Daten oder Fehler beim Lesen - ignorieren
+                pass
+            
             max_size = (300, 400)  # Breite x Höhe in Pixeln
             
             if img.height > max_size[1] or img.width > max_size[0]:
                 img.thumbnail(max_size, Image.Resampling.LANCZOS)
-                img.save(self.profile_picture.path, optimize=True, quality=85)
+            
+            # Als JPEG speichern um EXIF-Probleme zu vermeiden
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            
+            img.save(self.profile_picture.path, "JPEG", optimize=True, quality=85)
+            
         except Exception as e:
             print(f"Fehler beim Bildverarbeitung für {self}: {e}")
     

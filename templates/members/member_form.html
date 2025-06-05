@@ -307,7 +307,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const memberType = memberTypeSelect.value;
         
         // Präfix automatisch vorschlagen basierend auf Mitarbeitertyp
-        if (memberType === 'BF' || memberType === 'FF' || memberType === 'JF') {
+        // BF und STADT bekommen keinen Präfix, nur FF und JF
+        if (memberType === 'FF' || memberType === 'JF') {
             prefixSelect.value = memberType;
         } else {
             prefixSelect.value = '';

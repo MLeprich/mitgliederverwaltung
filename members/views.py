@@ -139,9 +139,6 @@ def member_list(request):
     page = request.GET.get('page')
     members = paginator.get_page(page)
     
-    # Properties sind bereits im Model definiert - nicht hier setzen!
-    # Die Templates können direkt member.expires_soon und member.is_card_expired verwenden
-    
     return render(request, 'members/member_list.html', {'object_list': members})
 
 @login_required
@@ -164,10 +161,6 @@ def member_add(request):
 @login_required
 def member_detail(request, pk):
     member = get_object_or_404(Member, pk=pk)
-    
-    # Properties sind bereits im Model definiert - nicht hier setzen!
-    # Das Template kann direkt member.expires_soon und member.is_card_expired verwenden
-    
     return render(request, 'members/member_detail.html', {'member': member})
 
 @login_required
@@ -216,36 +209,24 @@ def import_data(request):
 def process_import(request, file):
     """Verarbeitung der Import-Datei"""
     try:
-        # Datei lesen
+        # Datei lesen mit korrekter Kodierung
         if file.name.endswith('.csv'):
-            df = pd.read_csv(file, encoding='utf-8')
+            # Verschiedene Kodierungen probieren
+            try:
+                df = pd.read_csv(file, encoding='utf-8-sig')  # UTF-8 mit BOM
+            except UnicodeDecodeError:
+                try:
+                    df = pd.read_csv(file, encoding='utf-8')
+                except UnicodeDecodeError:
+                    try:
+                        df = pd.read_csv(file, encoding='iso-8859-1')
+                    except UnicodeDecodeError:
+                        df = pd.read_csv(file, encoding='cp1252')
         else:
             df = pd.read_excel(file)
         
-        # Spalten normalisieren
-        df.columns = df.columns.str.strip().str.lower()
-        
-        # Erweiterte Spalten-Mappings
-        column_mapping = {
-            'vorname': 'first_name',
-            'nachname': 'last_name',
-            'geburtsdatum': 'birth_date',
-            'personalnummer': 'personnel_number',
-            'ausgestellt': 'issued_date',
-            'mitarbeitertyp': 'member_type',
-            'typ': 'member_type',
-            'präfix': 'card_number_prefix',
-            'prefix': 'card_number_prefix',
-            'ausweisnummer': 'card_number',
-            'first_name': 'first_name',
-            'last_name': 'last_name',
-            'birth_date': 'birth_date',
-            'personnel_number': 'personnel_number',
-            'issued_date': 'issued_date',
-            'member_type': 'member_type',
-            'card_number_prefix': 'card_number_prefix',
-            'card_number': 'card_number',
-        }
+        # Spalten normalisieren (Umlaute und Sonderzeichen berücksichtigen)
+        df.columns = df.columns.str.strip()
         
         successful_imports = 0
         failed_imports = 0
@@ -255,10 +236,71 @@ def process_import(request, file):
             try:
                 member_data = {}
                 
-                # Datenfelder zuordnen
-                for col, field in column_mapping.items():
-                    if col in df.columns and pd.notna(row[col]):
-                        member_data[field] = row[col]
+                # Grundlegende Datenfelder zuordnen (OHNE member_type)
+                basic_mapping = {
+                    'Vorname': 'first_name',
+                    'Nachname': 'last_name', 
+                    'Geburtsdatum': 'birth_date',
+                    'Personalnummer': 'personnel_number',
+                    'Ausweisnummer_Praefix': 'card_number_prefix',
+                    'Ausweisnummer-Präfix': 'card_number_prefix',
+                    'Ausgestellt_am': 'issued_date',
+                    'Ausgestellt am': 'issued_date',
+                    'Gueltig_bis': 'valid_until',
+                    'Gültig bis': 'valid_until',
+                    'Manuelle_Gueltigkeit': 'manual_validity',
+                    'Manuelle Gültigkeit': 'manual_validity',
+                }
+                
+                for col in df.columns:
+                    if col in basic_mapping and pd.notna(row[col]):
+                        field_name = basic_mapping[col]
+                        value = row[col]
+                        
+                        # Spezielle Behandlung für manual_validity
+                        if field_name == 'manual_validity':
+                            if isinstance(value, str):
+                                member_data[field_name] = value.lower() in ['ja', 'yes', 'true', '1', 'wahr']
+                            else:
+                                member_data[field_name] = bool(value)
+                        else:
+                            member_data[field_name] = value
+                
+                # SPEZIELLE BEHANDLUNG FÜR MITARBEITERTYP
+                member_type_value = None
+                
+                # 1. Prüfe zuerst Mitarbeitertyp_Code (hat Priorität)  
+                if 'Mitarbeitertyp_Code' in df.columns and pd.notna(row['Mitarbeitertyp_Code']):
+                    code_value = str(row['Mitarbeitertyp_Code']).upper().strip()
+                    valid_types = ['BF', 'FF', 'JF', 'STADT', 'EXTERN', 'PRAKTIKANT']
+                    if code_value in valid_types:
+                        member_type_value = code_value
+
+                # 2. Falls kein gültiger Code, prüfe Mitarbeitertyp (Text)
+                if not member_type_value and 'Mitarbeitertyp' in df.columns and pd.notna(row['Mitarbeitertyp']):
+                    text_value = str(row['Mitarbeitertyp']).strip()
+                    type_mapping = {
+                        'Berufsfeuerwehr': 'BF',
+                        'Freiwillige Feuerwehr': 'FF',
+                        'Jugendfeuerwehr': 'JF', 
+                        'Stadt': 'STADT',
+                        'Extern': 'EXTERN',
+                        'Praktikant': 'PRAKTIKANT'
+                    }
+                    if text_value in type_mapping:
+                        member_type_value = type_mapping[text_value]
+                    else:
+                        # Versuche direkten Code-Match
+                        text_upper = text_value.upper()
+                        valid_types = ['BF', 'FF', 'JF', 'STADT', 'EXTERN', 'PRAKTIKANT']
+                        if text_upper in valid_types:
+                            member_type_value = text_upper
+
+                # 3. Fallback auf Standard
+                if not member_type_value:
+                    member_type_value = 'FF'
+
+                member_data['member_type'] = member_type_value
                 
                 # Validierung der Pflichtfelder
                 if not all(k in member_data for k in ['first_name', 'last_name']):
@@ -270,6 +312,7 @@ def process_import(request, file):
                 if 'birth_date' in member_data:
                     try:
                         if isinstance(member_data['birth_date'], str):
+                            # Deutsche Datumsformate unterstützen
                             member_data['birth_date'] = pd.to_datetime(
                                 member_data['birth_date'], 
                                 dayfirst=True
@@ -279,7 +322,7 @@ def process_import(request, file):
                                 member_data['birth_date']
                             ).date()
                     except:
-                        errors.append(f"Zeile {index + 2}: Ungültiges Geburtsdatum")
+                        errors.append(f"Zeile {index + 2}: Ungültiges Geburtsdatum: {member_data['birth_date']}")
                         failed_imports += 1
                         continue
                 else:
@@ -287,27 +330,35 @@ def process_import(request, file):
                     failed_imports += 1
                     continue
                 
-                # Mitarbeitertyp validieren
-                if 'member_type' in member_data:
-                    valid_types = ['BF', 'FF', 'JF', 'STADT', 'EXTERN', 'PRAKTIKANT']
-                    if member_data['member_type'].upper() not in valid_types:
-                        member_data['member_type'] = 'FF'  # Default
-                    else:
-                        member_data['member_type'] = member_data['member_type'].upper()
-                else:
-                    member_data['member_type'] = 'FF'  # Default
-                
                 # Ausstellungsdatum setzen
                 if 'issued_date' not in member_data:
                     member_data['issued_date'] = timezone.now().date()
+                elif isinstance(member_data['issued_date'], str):
+                    try:
+                        member_data['issued_date'] = pd.to_datetime(
+                            member_data['issued_date'], 
+                            dayfirst=True
+                        ).date()
+                    except:
+                        member_data['issued_date'] = timezone.now().date()
                 
                 # Ausweisnummer-Präfix validieren
                 if 'card_number_prefix' in member_data:
-                    valid_prefixes = ['BF', 'FF', 'JF', '']
+                    valid_prefixes = ['FF', 'JF', '']
                     if member_data['card_number_prefix'].upper() not in valid_prefixes:
                         member_data['card_number_prefix'] = ''
                     else:
                         member_data['card_number_prefix'] = member_data['card_number_prefix'].upper()
+                
+                # Gültig bis Datum verarbeiten
+                if 'valid_until' in member_data and isinstance(member_data['valid_until'], str):
+                    try:
+                        member_data['valid_until'] = pd.to_datetime(
+                            member_data['valid_until'], 
+                            dayfirst=True
+                        ).date()
+                    except:
+                        del member_data['valid_until']  # Wird automatisch gesetzt
                 
                 # Prüfen auf Duplikate
                 existing = Member.objects.filter(
@@ -321,7 +372,11 @@ def process_import(request, file):
                     failed_imports += 1
                     continue
                 
-                # Mitglied erstellen (Ausweisnummer wird automatisch generiert)
+                # Ausweisnummer löschen wenn vorhanden (wird automatisch generiert)
+                if 'card_number' in member_data:
+                    del member_data['card_number']
+                
+                # Mitglied erstellen
                 Member.objects.create(**member_data)
                 successful_imports += 1
                 
@@ -389,13 +444,14 @@ def export_data(request):
             'Geburtsdatum': member.birth_date.strftime('%d.%m.%Y'),
             'Personalnummer': member.personnel_number or '',
             'Mitarbeitertyp': member.get_member_type_display(),
+            'Mitarbeitertyp_Code': member.member_type,  # Für Re-Import
             'Ausweisnummer': member.card_number,
-            'Ausweisnummer-Präfix': member.card_number_prefix or '',
-            'Ausgestellt am': member.issued_date.strftime('%d.%m.%Y'),
-            'Gültig bis': member.valid_until.strftime('%d.%m.%Y'),
-            'Manuelle Gültigkeit': 'Ja' if member.manual_validity else 'Nein',
+            'Ausweisnummer_Praefix': member.card_number_prefix or '',
+            'Ausgestellt_am': member.issued_date.strftime('%d.%m.%Y'),
+            'Gueltig_bis': member.valid_until.strftime('%d.%m.%Y'),
+            'Manuelle_Gueltigkeit': 'Ja' if member.manual_validity else 'Nein',
             'Aktiv': 'Ja' if member.is_active else 'Nein',
-            'Erstellt am': member.created_at.strftime('%d.%m.%Y %H:%M'),
+            'Erstellt_am': member.created_at.strftime('%d.%m.%Y %H:%M'),
         })
     
     today_str = date.today().strftime('%Y%m%d')
@@ -411,19 +467,21 @@ def export_data(request):
         with pd.ExcelWriter(response, engine='openpyxl') as writer:
             df.to_excel(writer, sheet_name='Mitglieder', index=False)
         
-        messages.success(request, f'{len(export_data)} Mitglieder als Excel exportiert.')
         return response
     
     else:
-        # CSV Export
+        # CSV Export mit korrekter UTF-8 Kodierung
         response = HttpResponse(content_type='text/csv; charset=utf-8')
         response['Content-Disposition'] = f'attachment; filename="mitglieder_{today_str}.csv"'
         
-        writer = csv.DictWriter(response, fieldnames=export_data[0].keys() if export_data else [])
-        writer.writeheader()
-        writer.writerows(export_data)
+        # UTF-8 BOM hinzufügen für Excel-Kompatibilität
+        response.write('\ufeff')
         
-        messages.success(request, f'{len(export_data)} Mitglieder als CSV exportiert.')
+        if export_data:
+            writer = csv.DictWriter(response, fieldnames=export_data[0].keys())
+            writer.writeheader()
+            writer.writerows(export_data)
+        
         return response
 
 @login_required
@@ -432,34 +490,52 @@ def download_template(request):
     response = HttpResponse(content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = 'attachment; filename="import_vorlage.csv"'
     
-    # Beispieldaten mit neuen Feldern
+    # UTF-8 BOM für Excel-Kompatibilität
+    response.write('\ufeff')
+    
+    # Beispieldaten mit allen neuen Feldern
+    # In der download_template Funktion:
+
     template_data = [
         {
             'Vorname': 'Max',
             'Nachname': 'Mustermann',
             'Geburtsdatum': '01.01.1990',
             'Personalnummer': '12345',
-            'Mitarbeitertyp': 'BF',
-            'Ausweisnummer-Präfix': 'BF',
-            'Ausgestellt': '01.01.2024'
+            'Mitarbeitertyp_Code': 'BF',
+            'Ausweisnummer_Praefix': '',  # BF bekommt keinen Präfix
+            'Ausgestellt_am': '01.01.2024',
+            'Manuelle_Gueltigkeit': 'Nein'
         },
         {
             'Vorname': 'Maria',
             'Nachname': 'Musterfrau',
             'Geburtsdatum': '15.06.1985',
             'Personalnummer': '',
-            'Mitarbeitertyp': 'FF',
-            'Ausweisnummer-Präfix': 'FF',
-            'Ausgestellt': '15.01.2024'
+            'Mitarbeitertyp_Code': 'FF',
+            'Ausweisnummer_Praefix': 'FF',  # FF bekommt Präfix
+            'Ausgestellt_am': '15.01.2024',
+            'Manuelle_Gueltigkeit': 'Nein'
         },
         {
-            'Vorname': 'John',
-            'Nachname': 'Doe',
+            'Vorname': 'Klaus',
+            'Nachname': 'Schmidt',
             'Geburtsdatum': '22.03.1988',
             'Personalnummer': '67890',
-            'Mitarbeitertyp': 'EXTERN',
-            'Ausweisnummer-Präfix': '',
-            'Ausgestellt': ''
+            'Mitarbeitertyp_Code': 'STADT',
+            'Ausweisnummer_Praefix': '',  # STADT bekommt keinen Präfix
+            'Ausgestellt_am': '01.03.2024',
+            'Manuelle_Gueltigkeit': 'Nein'
+        },
+        {
+            'Vorname': 'Anna',
+            'Nachname': 'Weber',
+            'Geburtsdatum': '15.08.1995',
+            'Personalnummer': '',
+            'Mitarbeitertyp_Code': 'JF',
+            'Ausweisnummer_Praefix': 'JF',  # JF bekommt Präfix
+            'Ausgestellt_am': '01.03.2024',
+            'Manuelle_Gueltigkeit': 'Nein'
         }
     ]
     
