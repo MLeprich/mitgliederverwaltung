@@ -16,16 +16,6 @@ Ein Django-basiertes Web-Dashboard für die Verwaltung von Mitgliederdaten zur E
 ![Mitglied hinzufügen](docs/Mitglieder%20Hinzufuegen.PNG)
 *Neues Mitglied erfassen mit Live-Webcam-Integration für Passbilder*
 
-## 🚀 Live-Demo
-
-Sehen Sie das System in Aktion:
-
-| Feature | Screenshot | Beschreibung |
-|---------|------------|--------------|
-| **📊 Dashboard** | ![Dashboard](docs/Dashbooard.PNG) | Zentrale Übersicht mit Statistiken und Quick-Actions |
-| **👥 Mitgliederliste** | ![Mitglieder](docs/Mitglieder.PNG) | Vollständige Verwaltung mit Suche und Filterung |
-| **📷 Webcam-Integration** | ![Hinzufügen](docs/Mitglieder%20Hinzufuegen.PNG) | Live-Fotoaufnahme für professionelle Passbilder |
-
 ## ✨ Features
 
 ### 👥 Mitgliederverwaltung
