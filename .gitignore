@@ -1,79 +1,56 @@
-# Django
-*.pyc
-*pyo
-__pycache__/
-*.so
-.Python
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+# Django Mitgliederverwaltung .gitignore
 
-# Django specific
-db.sqlite3
-db.sqlite3-journal
-*.log
-local_settings.py
+# ===========================================
+# Django Specifics
+# ===========================================
 
-# Media files (Profilbilder - sensible Daten!)
-media/
-uploads/
-staticfiles/
-
-# Environment variables (WICHTIG: Geheimnisse nicht committen!)
+# Environment variables
 .env
 .env.local
 .env.production
 
-# Backup files
-backups/
-*.backup
+# Django secret key and settings
+local_settings.py
+settings_local.py
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Database
+*.sqlite3
+*.sqlite3-journal
+db.sqlite3*
 
-# OS
-.DS_Store
-Thumbs.db
+# Static files (collected by collectstatic)
+/staticfiles/
+/static_collected/
 
-# Logs
-logs/
-*.log
+# Media files (user uploads - SENSITIVE!)
+/media/
+!/media/.gitkeep
 
-# Temporary files
-*.tmp
-*.temp
+# Django migrations (optional - remove if you want to track them)
+# */migrations/*.py
+# !*/migrations/__init__.py
 
-# Gunicorn
-gunicorn.pid
+# Django cache
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
 
-# Local configuration
-local_config.py
-secrets.py
+# ===========================================
+# Python
+# ===========================================
 
-# Installation scripts (temporary setup files)
-install_part*.sh
-complete_install.sh
-backup_system.sh
-monitor_system.sh
-deploy.sh
-setup_*.sh
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.ENV/
 
-# Development and testing
-test_data/
-*.test
-.coverage
-htmlcov/
-.pytest_cache/
-
-# Documentation builds
-docs/_build/
-site/
+# Python cache
+*.py[cod]
+*$py.class
+*.so
 
 # Distribution / packaging
 .Python
@@ -92,4 +69,255 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# ===========================================
+# IDE & Editor files
+# ===========================================
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ===========================================
+# System files
+# ===========================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+
+# ===========================================
+# Raspberry Pi / Server Specifics
+# ===========================================
+
+# SSL certificates (NEVER commit these!)
+*.crt
+*.key
+*.pem
+*.p12
+*.pfx
+/ssl/
+/certs/
+
+# Nginx configuration with sensitive data
+nginx_sites_available/
+nginx.conf
+
+# Systemd service files (may contain paths)
+*.service
+
+# Log files
+*.log
+logs/
+/var/log/
+
+# Backup files
+*.backup
+*.bak
+*.old
+backup_*
+*_backup
+
+# ===========================================
+# Development & Temporary files
+# ===========================================
+
+# Temporary scripts and test files
+test_*.py
+temp_*
+tmp_*
+*_test.*
+*_temp.*
+
+# Script backups
+*.sh.backup
+*.sh.old
+*_old.*
+*_backup.*
+
+# Development databases
+test.db
+dev.db
+
+# Documentation drafts
+draft_*
+TODO.md
+NOTES.md
+
+# ===========================================
+# Production & Deployment
+# ===========================================
+
+# Production settings
+production_settings.py
+prod_settings.py
+
+# Docker (if used later)
+.dockerignore
+docker-compose.override.yml
+
+# Deployment scripts with sensitive data
+deploy.sh
+deploy_prod.sh
+
+# Process IDs
+*.pid
+
+# ===========================================
+# Sensitive Data & Security
+# ===========================================
+
+# Any file containing passwords, keys, tokens
+*password*
+*secret*
+*token*
+*api_key*
+*private*
+
+# Configuration files with sensitive data
+config.ini
+config.json
+secrets.json
+
+# Database exports (may contain personal data)
+*.sql
+*.dump
+export_*
+
+# Member photos and personal data
+profile_pics/
+member_photos/
+uploads/
+
+# ===========================================
+# Build & Deployment Artifacts
+# ===========================================
+
+# Compiled files
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+
+# Compressed files
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# ===========================================
+# Additional ignores for this project
+# ===========================================
+
+# Custom ignore patterns for Mitgliederverwaltung
+
+# Old versions and backups
+templates/**/*.old
+templates/**/*.backup
+members/**/*.old
+static/**/*.old
+*.html.old
+*.py.old
+*.js.old
+*.css.old
+
+# Debug and test files
+debug_*
+test_upload.*
+sample_*
+
+# Import/export test files
+import_test.csv
+export_test.*
+test_members.*
+
+# Webcam test images
+webcam_test.*
+camera_test.*
+
+# Local development overrides
+local_*
+dev_*
+
+# Keep empty directories with .gitkeep
+!.gitkeep
