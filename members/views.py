@@ -425,6 +425,14 @@ def process_import(request, file):
             messages.error(request, error_msg)
         
         return redirect('members:import_data')
+        
+    except Exception as e:
+        # DIESER EXCEPT-BLOCK WAR FEHLEND - das war der Grund für den Syntax-Fehler!
+        import traceback
+        print(f"❌ KRITISCHER FEHLER beim CSV-Import: {str(e)}")
+        print(traceback.format_exc())
+        messages.error(request, f'Kritischer Fehler beim Import: {str(e)}')
+        return redirect('members:import_data')
 
 @login_required
 def export_data(request):
