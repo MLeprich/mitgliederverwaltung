@@ -321,3 +321,14 @@ dev_*
 
 # Keep empty directories with .gitkeep
 !.gitkeep
+
+# Shell scripts (with exception for https_setup.sh)
+*.sh
+!https_setup.sh
+!installation_script/https_setup.sh
+
+# Script backups
+*.sh.backup
+*.sh.old
+*_old.*
+*_backup.*
