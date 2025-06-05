@@ -5,7 +5,7 @@ Ein Django-basiertes Web-Dashboard für die Verwaltung von Mitgliederdaten zur E
 ## 📸 Screenshots
 
 ### Dashboard-Übersicht
-![Dashboard Screenshot](docs/Dashboard.PNG)
+![Dashboard Screenshot](docs/Dashbooard.PNG)
 *Modernes Dashboard mit Statistiken, Mitarbeitertypen-Verteilung und ablaufenden Ausweisen*
 
 ### Mitglieder-Verwaltung
