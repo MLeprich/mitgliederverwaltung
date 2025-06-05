@@ -1,3 +1,4 @@
+import base64
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -10,6 +11,9 @@ import pandas as pd
 import csv
 import os
 import re 
+from django.core.files.base import ContentFile
+from io import BytesIO
+from PIL import Image
 from .models import Member
 from .forms import MemberForm, ImportForm
 
@@ -147,7 +151,21 @@ def member_add(request):
     if request.method == 'POST':
         form = MemberForm(request.POST, request.FILES)
         if form.is_valid():
-            member = form.save()
+            member = form.save(commit=False)
+            
+            # Webcam-Daten verarbeiten falls vorhanden
+            webcam_data = request.POST.get('webcam_data')
+            if webcam_data and webcam_data.startswith('data:image'):
+                try:
+                    # Base64 zu Bilddatei konvertieren
+                    image_file = process_webcam_image(webcam_data, member.first_name, member.last_name)
+                    member.profile_picture = image_file
+                    print(f"✅ Webcam-Bild verarbeitet für {member.full_name}")
+                except Exception as e:
+                    print(f"❌ Webcam-Bildverarbeitung fehlgeschlagen: {str(e)}")
+                    messages.warning(request, f'Webcam-Bild konnte nicht verarbeitet werden: {str(e)}')
+            
+            member.save()
             messages.success(request, f'Mitglied {member.full_name} wurde erfolgreich erstellt.')
             return redirect('members:member_detail', pk=member.pk)
     else:
@@ -171,7 +189,21 @@ def member_edit(request, pk):
     if request.method == 'POST':
         form = MemberForm(request.POST, request.FILES, instance=member)
         if form.is_valid():
-            member = form.save()
+            member = form.save(commit=False)
+            
+            # Webcam-Daten verarbeiten falls vorhanden
+            webcam_data = request.POST.get('webcam_data')
+            if webcam_data and webcam_data.startswith('data:image'):
+                try:
+                    # Base64 zu Bilddatei konvertieren
+                    image_file = process_webcam_image(webcam_data, member.first_name, member.last_name)
+                    member.profile_picture = image_file
+                    print(f"✅ Webcam-Bild aktualisiert für {member.full_name}")
+                except Exception as e:
+                    print(f"❌ Webcam-Bildverarbeitung fehlgeschlagen: {str(e)}")
+                    messages.warning(request, f'Webcam-Bild konnte nicht verarbeitet werden: {str(e)}')
+            
+            member.save()
             messages.success(request, f'Mitglied {member.full_name} wurde aktualisiert.')
             return redirect('members:member_detail', pk=member.pk)
     else:
@@ -183,6 +215,63 @@ def member_edit(request, pk):
         'title': f'Mitglied bearbeiten: {member.full_name}',
         'submit_text': 'Änderungen speichern'
     })
+
+def process_webcam_image(data_url, first_name, last_name):
+    """
+    Konvertiert Base64 Webcam-Daten zu Django-Bilddatei
+    
+    Args:
+        data_url: Base64 data URL vom Webcam-Capture
+        first_name: Vorname für Dateinamen
+        last_name: Nachname für Dateinamen
+    
+    Returns:
+        ContentFile: Django-kompatible Bilddatei
+    """
+    try:
+        # Data URL aufteilen (data:image/jpeg;base64,...)
+        header, data = data_url.split(',', 1)
+        
+        # Base64 dekodieren
+        image_data = base64.b64decode(data)
+        
+        # PIL Image erstellen
+        image = Image.open(BytesIO(image_data))
+        
+        # Sicherstellen dass es RGB ist (für JPEG)
+        if image.mode in ('RGBA', 'P', 'LA'):
+            # Weißer Hintergrund für Transparenz
+            background = Image.new('RGB', image.size, (255, 255, 255))
+            if image.mode == 'P':
+                image = image.convert('RGBA')
+            background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+            image = background
+        elif image.mode != 'RGB':
+            image = image.convert('RGB')
+        
+        # Auf Dienstausweis-Format optimieren (267x400px)
+        target_width = 267
+        target_height = 400
+        
+        # Bereits die richtige Größe vom JavaScript, aber sicherheitshalber prüfen
+        if image.size != (target_width, target_height):
+            # Resize mit hochwertiger Interpolation
+            image = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
+        
+        # In BytesIO speichern
+        output = BytesIO()
+        image.save(output, format='JPEG', quality=95, optimize=True, dpi=(300, 300))
+        output.seek(0)
+        
+        # Dateiname generieren
+        filename = f"{first_name.lower()}.{last_name.lower()}.webcam.jpg"
+        
+        # Django ContentFile erstellen
+        return ContentFile(output.read(), name=filename)
+        
+    except Exception as e:
+        print(f"❌ Fehler bei Webcam-Bildverarbeitung: {str(e)}")
+        raise Exception(f"Webcam-Bild konnte nicht verarbeitet werden: {str(e)}")
 
 @login_required
 def member_delete(request, pk):

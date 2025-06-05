@@ -205,7 +205,7 @@
                             </div>
                         </div>
                         
-                        <!-- Profilbild -->
+                        <!-- Profilbild mit Webcam -->
                         <div class="col-md-4">
                             <h5 class="mb-3">
                                 <i class="fas fa-image me-2"></i>Profilbild
@@ -225,18 +225,58 @@
                                     {% endif %}
                                 </div>
                                 
-                                <label for="{{ form.profile_picture.id_for_label }}" class="form-label">
-                                    {{ form.profile_picture.label }}
-                                </label>
-                                {{ form.profile_picture }}
-                                {% if form.profile_picture.help_text %}
-                                    <div class="form-text">{{ form.profile_picture.help_text }}</div>
-                                {% endif %}
-                                {% if form.profile_picture.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {{ form.profile_picture.errors.0 }}
+                                <!-- Webcam Integration -->
+                                <div class="webcam-section mb-3">
+                                    <div class="btn-group w-100 mb-3">
+                                        <button type="button" id="webcam-btn" class="btn btn-info">
+                                            <i class="fas fa-camera me-2"></i>Webcam verwenden
+                                        </button>
+                                        <button type="button" id="file-btn" class="btn btn-outline-secondary active">
+                                            <i class="fas fa-upload me-2"></i>Datei hochladen
+                                        </button>
                                     </div>
-                                {% endif %}
+                                    
+                                    <!-- Webcam Bereich (initially hidden) -->
+                                    <div id="webcam-area" class="webcam-area" style="display: none;">
+                                        <video id="webcam-video" class="webcam-video mb-3" autoplay muted></video>
+                                        <canvas id="webcam-canvas" style="display: none;"></canvas>
+                                        
+                                        <div class="webcam-controls mb-3">
+                                            <button type="button" id="capture-btn" class="btn btn-success me-2">
+                                                <i class="fas fa-camera me-1"></i>Foto aufnehmen
+                                            </button>
+                                            <button type="button" id="retake-btn" class="btn btn-warning me-2" style="display: none;">
+                                                <i class="fas fa-redo me-1"></i>Erneut aufnehmen
+                                            </button>
+                                            <button type="button" id="stop-webcam-btn" class="btn btn-secondary">
+                                                <i class="fas fa-stop me-1"></i>Webcam stoppen
+                                            </button>
+                                        </div>
+                                        
+                                        <div class="webcam-preview mb-3" id="webcam-preview" style="display: none;">
+                                            <img id="captured-image" class="captured-image">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- File Upload Bereich -->
+                                <div id="file-upload-area" class="file-upload-section">
+                                    <label for="{{ form.profile_picture.id_for_label }}" class="form-label">
+                                        {{ form.profile_picture.label }}
+                                    </label>
+                                    {{ form.profile_picture }}
+                                    {% if form.profile_picture.help_text %}
+                                        <div class="form-text">{{ form.profile_picture.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.profile_picture.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.profile_picture.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Hidden input für Webcam-Daten -->
+                                <input type="hidden" id="webcam-data" name="webcam_data">
                             </div>
                         </div>
                     </div>
@@ -270,14 +310,262 @@
 </div>
 {% endblock %}
 
+{% block extra_css %}
+<style>
+/* Webcam Styling */
+.webcam-area {
+    border: 2px dashed #007bff;
+    border-radius: 8px;
+    padding: 1rem;
+    background-color: #f8f9fc;
+}
+
+.webcam-video {
+    width: 100%;
+    max-width: 300px;
+    height: auto;
+    border-radius: 8px;
+    border: 2px solid #dee2e6;
+}
+
+.captured-image {
+    width: 100%;
+    max-width: 300px;
+    height: auto;
+    border-radius: 8px;
+    border: 2px solid #28a745;
+}
+
+.profile-image-preview {
+    max-width: 200px;
+    max-height: 250px;
+    border-radius: 8px;
+}
+
+.profile-image-placeholder {
+    width: 200px;
+    height: 250px;
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f8f9fa;
+    margin: 0 auto;
+}
+
+.btn-group .btn.active {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.webcam-controls {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .webcam-video, .captured-image {
+        max-width: 250px;
+    }
+    
+    .webcam-controls {
+        flex-direction: column;
+    }
+    
+    .webcam-controls .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+}
+</style>
+{% endblock %}
+
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Image preview functionality
-    const imageInput = document.getElementById('{{ form.profile_picture.id_for_label }}');
+    // Webcam Variablen
+    let stream = null;
+    let video = document.getElementById('webcam-video');
+    let canvas = document.getElementById('webcam-canvas');
+    let capturedImage = document.getElementById('captured-image');
+    let webcamData = document.getElementById('webcam-data');
+    
+    // Buttons
+    const webcamBtn = document.getElementById('webcam-btn');
+    const fileBtn = document.getElementById('file-btn');
+    const captureBtn = document.getElementById('capture-btn');
+    const retakeBtn = document.getElementById('retake-btn');
+    const stopWebcamBtn = document.getElementById('stop-webcam-btn');
+    
+    // Areas
+    const webcamArea = document.getElementById('webcam-area');
+    const fileUploadArea = document.getElementById('file-upload-area');
+    const webcamPreview = document.getElementById('webcam-preview');
     const imagePreview = document.getElementById('image-preview');
     
-    if (imageInput && imagePreview) {
+    // Webcam Button Click
+    webcamBtn.addEventListener('click', function() {
+        toggleMode('webcam');
+        startWebcam();
+    });
+    
+    // File Button Click
+    fileBtn.addEventListener('click', function() {
+        toggleMode('file');
+        stopWebcam();
+    });
+    
+    // Capture Button Click
+    captureBtn.addEventListener('click', function() {
+        capturePhoto();
+    });
+    
+    // Retake Button Click
+    retakeBtn.addEventListener('click', function() {
+        retakePhoto();
+    });
+    
+    // Stop Webcam Button Click
+    stopWebcamBtn.addEventListener('click', function() {
+        stopWebcam();
+        toggleMode('file');
+    });
+    
+    function toggleMode(mode) {
+        if (mode === 'webcam') {
+            webcamBtn.classList.add('active');
+            fileBtn.classList.remove('active');
+            webcamArea.style.display = 'block';
+            fileUploadArea.style.display = 'none';
+        } else {
+            fileBtn.classList.add('active');
+            webcamBtn.classList.remove('active');
+            webcamArea.style.display = 'none';
+            fileUploadArea.style.display = 'block';
+        }
+    }
+    
+    async function startWebcam() {
+        try {
+            // Webcam-Zugriff anfordern mit HD-Qualität für C922
+            const constraints = {
+                video: {
+                    width: { ideal: 1920, max: 1920 },
+                    height: { ideal: 1080, max: 1080 },
+                    frameRate: { ideal: 30 },
+                    facingMode: 'user'
+                },
+                audio: false
+            };
+            
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = stream;
+            
+            console.log('✅ Webcam gestartet');
+            
+            // Video-Eigenschaften loggen
+            video.addEventListener('loadedmetadata', function() {
+                console.log(`📷 Video-Auflösung: ${video.videoWidth}x${video.videoHeight}`);
+            });
+            
+        } catch (error) {
+            console.error('❌ Webcam-Fehler:', error);
+            alert('Webcam konnte nicht gestartet werden. Bitte überprüfen Sie die Berechtigungen.');
+        }
+    }
+    
+    function stopWebcam() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+            video.srcObject = null;
+            console.log('🛑 Webcam gestoppt');
+        }
+    }
+    
+    function capturePhoto() {
+        if (!stream) {
+            alert('Webcam ist nicht aktiv');
+            return;
+        }
+        
+        // Canvas-Größe für Dienstausweis (2:3 Ratio)
+        const targetWidth = 534;  // 267x2 für bessere Qualität
+        const targetHeight = 800; // 400x2 für bessere Qualität
+        
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        
+        const ctx = canvas.getContext('2d');
+        
+        // Video-Abmessungen
+        const videoWidth = video.videoWidth;
+        const videoHeight = video.videoHeight;
+        
+        // Seitenverhältnis berechnen für center crop
+        const videoRatio = videoWidth / videoHeight;
+        const targetRatio = targetWidth / targetHeight;
+        
+        let sourceX = 0, sourceY = 0, sourceWidth = videoWidth, sourceHeight = videoHeight;
+        
+        if (videoRatio > targetRatio) {
+            // Video ist breiter - seitlich beschneiden
+            sourceWidth = videoHeight * targetRatio;
+            sourceX = (videoWidth - sourceWidth) / 2;
+        } else {
+            // Video ist höher - oben/unten beschneiden
+            sourceHeight = videoWidth / targetRatio;
+            sourceY = (videoHeight - sourceHeight) / 2;
+        }
+        
+        // Foto aufnehmen mit center crop
+        ctx.drawImage(
+            video,
+            sourceX, sourceY, sourceWidth, sourceHeight,
+            0, 0, targetWidth, targetHeight
+        );
+        
+        // Als Data URL konvertieren (JPEG, 95% Qualität für Druck)
+        const dataURL = canvas.toDataURL('image/jpeg', 0.95);
+        
+        // Vorschau anzeigen
+        capturedImage.src = dataURL;
+        webcamPreview.style.display = 'block';
+        
+        // In hidden input speichern
+        webcamData.value = dataURL;
+        
+        // Auch in der Hauptvorschau anzeigen
+        imagePreview.innerHTML = `<img src="${dataURL}" class="profile-image-preview mb-3" alt="Webcam-Aufnahme">`;
+        
+        // Button-Zustände anpassen
+        captureBtn.style.display = 'none';
+        retakeBtn.style.display = 'inline-block';
+        
+        console.log('📸 Foto aufgenommen:', targetWidth + 'x' + targetHeight);
+    }
+    
+    function retakePhoto() {
+        webcamPreview.style.display = 'none';
+        webcamData.value = '';
+        captureBtn.style.display = 'inline-block';
+        retakeBtn.style.display = 'none';
+        
+        // Zurück zum ursprünglichen Placeholder
+        {% if not object.profile_picture %}
+        imagePreview.innerHTML = '<i class="fas fa-user fa-3x"></i>';
+        {% endif %}
+    }
+    
+    // Existing image preview functionality für File Upload
+    const imageInput = document.getElementById('{{ form.profile_picture.id_for_label }}');
+    
+    if (imageInput) {
         imageInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
@@ -288,11 +576,18 @@ document.addEventListener('DOMContentLoaded', function() {
                              class="profile-image-preview mb-3" 
                              alt="Bildvorschau">
                     `;
+                    // Webcam-Daten löschen bei File-Upload
+                    webcamData.value = '';
                 };
                 reader.readAsDataURL(file);
             }
         });
     }
+    
+    // Cleanup beim Verlassen der Seite
+    window.addEventListener('beforeunload', function() {
+        stopWebcam();
+    });
     
     // Member type and prefix functionality
     const memberTypeSelect = document.getElementById('{{ form.member_type.id_for_label }}');
