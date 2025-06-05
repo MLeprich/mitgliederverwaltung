@@ -64,14 +64,22 @@ class Member(models.Model):
     )
     
     # Ausweis-Daten
-    issued_date = models.DateField(default=timezone.now, verbose_name="Ausgestellt am")
-    valid_until = models.DateField(verbose_name="Gültig bis")
-    manual_validity = models.BooleanField(
-        default=False,
-        verbose_name="Manuelle Gültigkeit",
-        help_text="Für Externe und Praktikanten"
+    issued_date = models.DateField(
+        verbose_name="Ausgestellt am",
+        null=True,      
+        blank=True,    
+        help_text="Datum der Ausweis-Erstellung (leer = noch nicht erstellt)"
     )
-    
+    valid_until = models.DateField(
+        verbose_name="Gültig bis",
+        null=True, 
+        blank=True
+    )
+    manual_validity = models.BooleanField(
+    default=False,
+    verbose_name="Manuelle Gültigkeit",
+    help_text="Für Externe und Praktikanten"
+    )
     # Profilbild
     profile_picture = models.ImageField(
         upload_to=member_image_path,
@@ -100,8 +108,8 @@ class Member(models.Model):
         if not self.card_number:
             self.card_number = self.generate_card_number()
         
-        # Gültigkeit automatisch setzen (außer bei manueller Eingabe)
-        if not self.manual_validity and not self.valid_until:
+        # Gültigkeit automatisch setzen nur wenn issued_date vorhanden ist
+        if self.issued_date and not self.manual_validity and not self.valid_until:
             if self.member_type in ['EXTERN', 'PRAKTIKANT']:
                 # Für Externe und Praktikanten: 1 Jahr
                 self.valid_until = self.issued_date + timedelta(days=365)

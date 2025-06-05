@@ -5,10 +5,11 @@ from django.http import HttpResponse, JsonResponse
 from django.core.paginator import Paginator
 from django.db.models import Q, Count
 from django.utils import timezone
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta 
 import pandas as pd
 import csv
 import os
+import re 
 from .models import Member
 from .forms import MemberForm, ImportForm
 
@@ -207,7 +208,10 @@ def import_data(request):
     return render(request, 'members/import.html', {'form': form})
 
 def process_import(request, file):
-    """Verarbeitung der Import-Datei"""
+    """Verarbeitung der Import-Datei mit korrekter Excel-Datumsbehandlung"""
+    from datetime import datetime, date
+    import re
+    
     try:
         # Datei lesen mit korrekter Kodierung
         if file.name.endswith('.csv'):
@@ -223,7 +227,8 @@ def process_import(request, file):
                     except UnicodeDecodeError:
                         df = pd.read_csv(file, encoding='cp1252')
         else:
-            df = pd.read_excel(file)
+            # Excel-Datei mit spezieller Datumsbehandlung
+            df = pd.read_excel(file, date_parser=None)
         
         # Spalten normalisieren (Umlaute und Sonderzeichen berücksichtigen)
         df.columns = df.columns.str.strip()
@@ -232,11 +237,78 @@ def process_import(request, file):
         failed_imports = 0
         errors = []
         
+        # Verbesserte Datums-Konvertierungsfunktion
+        def smart_date_conversion(date_value):
+            """Intelligente Datumskonvertierung für verschiedene Formate"""
+            if pd.isna(date_value) or not date_value:
+                return None
+            
+            # Fall 1: Bereits ein datetime-Objekt (aus Excel)
+            if isinstance(date_value, (pd.Timestamp, datetime)):
+                return date_value.date()
+            
+            # Fall 2: String-Wert
+            date_str = str(date_value).strip()
+            
+            # Versuchsreihenfolge für verschiedene Formate:
+            formats_to_try = [
+                # Deutsches Format
+                '%d.%m.%Y',
+                '%d.%m.%y',
+                '%d/%m/%Y',
+                '%d/%m/%y',
+                # ISO Format
+                '%Y-%m-%d',
+                # Amerikanisches Format (Fallback)
+                '%m/%d/%Y',
+                '%m/%d/%y',
+            ]
+            
+            for fmt in formats_to_try:
+                try:
+                    parsed_date = datetime.strptime(date_str, fmt).date()
+                    
+                    # 2-stellige Jahre korrigieren
+                    if parsed_date.year < 1950:  # Vermutlich 20xx gemeint
+                        parsed_date = parsed_date.replace(year=parsed_date.year + 100)
+                    
+                    return parsed_date
+                except ValueError:
+                    continue
+            
+            # Spezialbehandlung für amerikanisches Format mit Regex
+            import re
+            american_pattern = r'^(\d{1,2})/(\d{1,2})/(\d{2,4})$'
+            match = re.match(american_pattern, date_str)
+            
+            if match:
+                month, day, year = map(int, match.groups())
+                
+                # 2-stellige Jahre zu 4-stelligen konvertieren
+                if year < 100:
+                    year = year + 2000 if year < 50 else year + 1900
+                
+                try:
+                    return date(year, month, day)
+                except ValueError:
+                    pass
+            
+            # Als letzter Versuch: Pandas to_datetime mit verschiedenen Optionen
+            try:
+                # Erst deutsche Reihenfolge (Tag zuerst)
+                return pd.to_datetime(date_str, dayfirst=True).date()
+            except:
+                try:
+                    # Dann amerikanische Reihenfolge
+                    return pd.to_datetime(date_str, dayfirst=False).date()
+                except:
+                    return None
+        
         for index, row in df.iterrows():
             try:
                 member_data = {}
                 
-                # Grundlegende Datenfelder zuordnen (OHNE member_type)
+                # Grundlegende Datenfelder zuordnen
                 basic_mapping = {
                     'Vorname': 'first_name',
                     'Nachname': 'last_name', 
@@ -266,7 +338,7 @@ def process_import(request, file):
                         else:
                             member_data[field_name] = value
                 
-                # SPEZIELLE BEHANDLUNG FÜR MITARBEITERTYP
+                # MITARBEITERTYP-BEHANDLUNG
                 member_type_value = None
                 
                 # 1. Prüfe zuerst Mitarbeitertyp_Code (hat Priorität)  
@@ -308,20 +380,32 @@ def process_import(request, file):
                     failed_imports += 1
                     continue
                 
-                # Geburtsdatum formatieren
+                # GEBURTSDATUM MIT INTELLIGENTER KONVERTIERUNG
                 if 'birth_date' in member_data:
-                    try:
-                        if isinstance(member_data['birth_date'], str):
-                            # Deutsche Datumsformate unterstützen
-                            member_data['birth_date'] = pd.to_datetime(
-                                member_data['birth_date'], 
-                                dayfirst=True
-                            ).date()
-                        else:
-                            member_data['birth_date'] = pd.to_datetime(
-                                member_data['birth_date']
-                            ).date()
-                    except:
+                    converted_date = smart_date_conversion(member_data['birth_date'])
+                    if converted_date:
+                        member_data['birth_date'] = converted_date
+                        
+                        # Validierung Geburtsdatum
+                        birth_date = converted_date
+                        today = date.today()
+                        age = today.year - birth_date.year - (
+                            (today.month, today.day) < (birth_date.month, birth_date.day)
+                        )
+                        
+                        if age < 14:  # Jugendfeuerwehr ab 14
+                            errors.append(f"Zeile {index + 2}: Mitglied muss mindestens 14 Jahre alt sein (Alter: {age})")
+                            failed_imports += 1
+                            continue
+                        if age > 100:
+                            errors.append(f"Zeile {index + 2}: Unplausibles Alter: {age} Jahre")
+                            failed_imports += 1
+                            continue
+                        if birth_date > today:
+                            errors.append(f"Zeile {index + 2}: Geburtsdatum kann nicht in der Zukunft liegen")
+                            failed_imports += 1
+                            continue
+                    else:
                         errors.append(f"Zeile {index + 2}: Ungültiges Geburtsdatum: {member_data['birth_date']}")
                         failed_imports += 1
                         continue
@@ -330,34 +414,31 @@ def process_import(request, file):
                     failed_imports += 1
                     continue
                 
-                # Ausstellungsdatum setzen
-                if 'issued_date' not in member_data:
-                    member_data['issued_date'] = timezone.now().date()
-                elif isinstance(member_data['issued_date'], str):
-                    try:
-                        member_data['issued_date'] = pd.to_datetime(
-                            member_data['issued_date'], 
-                            dayfirst=True
-                        ).date()
-                    except:
-                        member_data['issued_date'] = timezone.now().date()
+                # Ausstellungsdatum nur setzen wenn vorhanden
+                if 'issued_date' in member_data and member_data['issued_date']:
+                    converted_issued = smart_date_conversion(member_data['issued_date'])
+                    if converted_issued:
+                        member_data['issued_date'] = converted_issued
+                    else:
+                        # Ungültiges Datum -> entfernen
+                        del member_data['issued_date']
+                # Wenn kein Ausstellungsdatum -> leer lassen (wird bei Ausweis-Erstellung gesetzt)
                 
                 # Ausweisnummer-Präfix validieren
                 if 'card_number_prefix' in member_data:
                     valid_prefixes = ['FF', 'JF', '']
-                    if member_data['card_number_prefix'].upper() not in valid_prefixes:
-                        member_data['card_number_prefix'] = ''
+                    prefix_str = str(member_data['card_number_prefix']).upper().strip()
+                    if prefix_str in valid_prefixes:
+                        member_data['card_number_prefix'] = prefix_str
                     else:
-                        member_data['card_number_prefix'] = member_data['card_number_prefix'].upper()
+                        member_data['card_number_prefix'] = ''
                 
                 # Gültig bis Datum verarbeiten
-                if 'valid_until' in member_data and isinstance(member_data['valid_until'], str):
-                    try:
-                        member_data['valid_until'] = pd.to_datetime(
-                            member_data['valid_until'], 
-                            dayfirst=True
-                        ).date()
-                    except:
+                if 'valid_until' in member_data and member_data['valid_until']:
+                    converted_valid = smart_date_conversion(member_data['valid_until'])
+                    if converted_valid:
+                        member_data['valid_until'] = converted_valid
+                    else:
                         del member_data['valid_until']  # Wird automatisch gesetzt
                 
                 # Prüfen auf Duplikate
@@ -368,13 +449,17 @@ def process_import(request, file):
                 ).first()
                 
                 if existing:
-                    errors.append(f"Duplikat: {member_data['first_name']} {member_data['last_name']} existiert bereits")
+                    errors.append(f"Duplikat: {member_data['first_name']} {member_data['last_name']} ({member_data['birth_date']}) existiert bereits")
                     failed_imports += 1
                     continue
                 
                 # Ausweisnummer löschen wenn vorhanden (wird automatisch generiert)
                 if 'card_number' in member_data:
                     del member_data['card_number']
+                
+                # Debug-Ausgabe für die ersten paar Einträge
+                if successful_imports < 3:
+                    print(f"Debug Import {successful_imports + 1}: {member_data['first_name']} {member_data['last_name']} - Geburtsdatum: {member_data['birth_date']}")
                 
                 # Mitglied erstellen
                 Member.objects.create(**member_data)
