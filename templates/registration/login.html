@@ -1,34 +1,388 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Anmelden - Mitgliederverwaltung{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6 col-lg-4">
-        <div class="card">
-            <div class="card-body">
+<div class="row justify-content-center align-items-center min-vh-100">
+    <div class="col-md-6 col-lg-5 col-xl-4">
+        <div class="card shadow-lg border-0">
+            <div class="card-body p-5">
+                <!-- Logo/Header -->
                 <div class="text-center mb-4">
-                    <i class="fas fa-id-card fa-3x text-primary mb-3"></i>
-                    <h2>Anmelden</h2>
-                    <p class="text-muted">Mitgliederverwaltung</p>
+                    <div class="login-icon">
+                        <i class="fas fa-id-card fa-3x text-primary mb-3"></i>
+                    </div>
+                    <h2 class="h4 mb-2">Anmelden</h2>
+                    <p class="text-muted mb-0">Mitgliederverwaltung System</p>
                 </div>
                 
-                <form method="post">
+                <!-- Error Messages -->
+                {% if form.errors %}
+                    <div class="alert alert-danger" role="alert">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        {% if form.non_field_errors %}
+                            {{ form.non_field_errors.0 }}
+                        {% else %}
+                            Bitte überprüfen Sie Ihre Eingaben.
+                        {% endif %}
+                    </div>
+                {% endif %}
+                
+                <!-- Login Form -->
+                <form method="post" class="needs-validation" novalidate>
                     {% csrf_token %}
+                    
+                    <!-- Username Field -->
                     <div class="mb-3">
-                        <label for="{{ form.username.id_for_label }}" class="form-label">Benutzername</label>
-                        {{ form.username }}
+                        <label for="{{ form.username.id_for_label }}" class="form-label fw-semibold">
+                            <i class="fas fa-user me-2 text-muted"></i>Benutzername
+                        </label>
+                        <input type="text" 
+                               class="form-control form-control-lg{% if form.username.errors %} is-invalid{% endif %}" 
+                               id="{{ form.username.id_for_label }}"
+                               name="{{ form.username.name }}"
+                               value="{{ form.username.value|default:'' }}"
+                               placeholder="Benutzername eingeben"
+                               required
+                               autocomplete="username"
+                               autofocus>
+                        {% if form.username.errors %}
+                            <div class="invalid-feedback">
+                                {{ form.username.errors.0 }}
+                            </div>
+                        {% endif %}
                     </div>
-                    <div class="mb-3">
-                        <label for="{{ form.password.id_for_label }}" class="form-label">Passwort</label>
-                        {{ form.password }}
+                    
+                    <!-- Password Field -->
+                    <div class="mb-4">
+                        <label for="{{ form.password.id_for_label }}" class="form-label fw-semibold">
+                            <i class="fas fa-lock me-2 text-muted"></i>Passwort
+                        </label>
+                        <div class="input-group">
+                            <input type="password" 
+                                   class="form-control form-control-lg{% if form.password.errors %} is-invalid{% endif %}" 
+                                   id="{{ form.password.id_for_label }}"
+                                   name="{{ form.password.name }}"
+                                   placeholder="Passwort eingeben"
+                                   required
+                                   autocomplete="current-password">
+                            <button class="btn btn-outline-secondary" 
+                                    type="button" 
+                                    id="togglePassword"
+                                    title="Passwort anzeigen/verstecken">
+                                <i class="fas fa-eye" id="toggleIcon"></i>
+                            </button>
+                        </div>
+                        {% if form.password.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.password.errors.0 }}
+                            </div>
+                        {% endif %}
                     </div>
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary">Anmelden</button>
+                    
+                    <!-- Remember Me (falls gewünscht) -->
+                    <div class="mb-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="rememberMe" name="remember_me">
+                            <label class="form-check-label text-muted" for="rememberMe">
+                                Angemeldet bleiben
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <div class="d-grid mb-3">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-sign-in-alt me-2"></i>
+                            Anmelden
+                        </button>
                     </div>
                 </form>
+                
+                <!-- Footer Links (falls gewünscht) -->
+                <div class="text-center">
+                    <small class="text-muted">
+                        Bei Problemen wenden Sie sich an den Administrator
+                    </small>
+                </div>
             </div>
+        </div>
+        
+        <!-- System Info -->
+        <div class="text-center mt-4">
+            <small class="text-muted">
+                <i class="fas fa-shield-alt me-1"></i>
+                Sicheres Anmeldesystem
+            </small>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Login-spezifische Styles */
+.min-vh-100 {
+    min-height: 100vh;
+    padding: 2rem 0;
+}
+
+.login-icon {
+    animation: fadeInDown 0.8s ease-out;
+}
+
+.card {
+    border-radius: 1rem;
+    background: linear-gradient(145deg, #ffffff, #f8f9fa);
+}
+
+.card-body {
+    border-radius: 1rem;
+}
+
+.form-control-lg {
+    border-radius: 0.75rem;
+    border: 2px solid #e9ecef;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-control-lg:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.15);
+    transform: translateY(-1px);
+}
+
+.form-label {
+    color: #495057;
+    margin-bottom: 0.75rem;
+    font-size: 0.95rem;
+}
+
+.btn-lg {
+    border-radius: 0.75rem;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.input-group .btn {
+    border-radius: 0 0.75rem 0.75rem 0;
+    border: 2px solid #e9ecef;
+    border-left: none;
+}
+
+.input-group .form-control {
+    border-radius: 0.75rem 0 0 0.75rem;
+}
+
+.input-group .form-control:focus + .btn {
+    border-color: #007bff;
+}
+
+.form-check-input:checked {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.alert {
+    border-radius: 0.75rem;
+    border: none;
+    font-size: 0.9rem;
+}
+
+.invalid-feedback {
+    font-size: 0.875rem;
+}
+
+/* Animationen */
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.card {
+    animation: fadeInUp 0.8s ease-out;
+}
+
+/* Responsive Anpassungen */
+@media (max-width: 576px) {
+    .card-body {
+        padding: 2rem !important;
+    }
+    
+    .min-vh-100 {
+        padding: 1rem 0;
+    }
+}
+
+/* Dark mode support (falls gewünscht) */
+@media (prefers-color-scheme: dark) {
+    .card {
+        background: linear-gradient(145deg, #2d3748, #1a202c);
+        color: #e2e8f0;
+    }
+    
+    .form-control-lg {
+        background-color: #4a5568;
+        border-color: #4a5568;
+        color: #e2e8f0;
+    }
+    
+    .form-control-lg::placeholder {
+        color: #a0aec0;
+    }
+    
+    .form-label {
+        color: #e2e8f0;
+    }
+}
+
+/* Loading state */
+.btn-primary:disabled {
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+.loading .btn-primary {
+    position: relative;
+    color: transparent;
+}
+
+.loading .btn-primary::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid transparent;
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Password toggle functionality
+    const togglePassword = document.getElementById('togglePassword');
+    const passwordInput = document.getElementById('{{ form.password.id_for_label }}');
+    const toggleIcon = document.getElementById('toggleIcon');
+    
+    if (togglePassword && passwordInput && toggleIcon) {
+        togglePassword.addEventListener('click', function() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            
+            // Toggle icon
+            if (type === 'text') {
+                toggleIcon.className = 'fas fa-eye-slash';
+                togglePassword.title = 'Passwort verstecken';
+            } else {
+                toggleIcon.className = 'fas fa-eye';
+                togglePassword.title = 'Passwort anzeigen';
+            }
+        });
+    }
+    
+    // Form validation
+    const form = document.querySelector('.needs-validation');
+    if (form) {
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            } else {
+                // Loading state
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    form.classList.add('loading');
+                    
+                    // Reset after 10 seconds (fallback)
+                    setTimeout(() => {
+                        submitBtn.disabled = false;
+                        form.classList.remove('loading');
+                    }, 10000);
+                }
+            }
+            form.classList.add('was-validated');
+        });
+    }
+    
+    // Auto-focus on username field if empty
+    const usernameInput = document.getElementById('{{ form.username.id_for_label }}');
+    if (usernameInput && !usernameInput.value) {
+        usernameInput.focus();
+    } else if (passwordInput) {
+        passwordInput.focus();
+    }
+    
+    // Enter key handling
+    document.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            const activeElement = document.activeElement;
+            if (activeElement && activeElement.form) {
+                activeElement.form.submit();
+            }
+        }
+    });
+    
+    // Remember me functionality (optional)
+    const rememberMeCheckbox = document.getElementById('rememberMe');
+    if (rememberMeCheckbox) {
+        // Load saved preference
+        const remembered = localStorage.getItem('rememberMe');
+        if (remembered === 'true') {
+            rememberMeCheckbox.checked = true;
+        }
+        
+        // Save preference
+        rememberMeCheckbox.addEventListener('change', function() {
+            localStorage.setItem('rememberMe', this.checked);
+        });
+    }
+});
+
+// Prevent form resubmission on page refresh
+if (window.history.replaceState) {
+    window.history.replaceState(null, null, window.location.href);
+}
+</script>
 {% endblock %}

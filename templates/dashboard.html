@@ -16,83 +16,111 @@
 <!-- Statistik Cards -->
 <div class="row mb-4">
     <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card stat-card">
-            <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                            Aktive Mitglieder
+        <a href="{% url 'members:member_list_active' %}" class="text-decoration-none">
+            <div class="card stat-card hover-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Aktive Mitglieder
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ stats.active_members }}
+                            </div>
                         </div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            {{ stats.active_members }}
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-gray-300"></i>
                         </div>
                     </div>
-                    <div class="col-auto">
-                        <i class="fas fa-users fa-2x text-gray-300"></i>
+                    <div class="card-footer-link">
+                        <small class="text-muted">
+                            <i class="fas fa-arrow-right me-1"></i>Details anzeigen
+                        </small>
                     </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
 
     <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card stat-card success">
-            <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                            Gültige Ausweise
+        <a href="{% url 'members:member_list_valid' %}" class="text-decoration-none">
+            <div class="card stat-card success hover-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Gültige Ausweise
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ stats.valid_cards }}
+                            </div>
                         </div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            {{ stats.valid_cards }}
+                        <div class="col-auto">
+                            <i class="fas fa-id-card fa-2x text-gray-300"></i>
                         </div>
                     </div>
-                    <div class="col-auto">
-                        <i class="fas fa-id-card fa-2x text-gray-300"></i>
+                    <div class="card-footer-link">
+                        <small class="text-muted">
+                            <i class="fas fa-arrow-right me-1"></i>Details anzeigen
+                        </small>
                     </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
 
     <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card stat-card warning">
-            <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                            Laufen bald ab
+        <a href="{% url 'members:member_list_expiring' %}" class="text-decoration-none">
+            <div class="card stat-card warning hover-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Laufen bald ab
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ stats.expiring_soon }}
+                            </div>
                         </div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            {{ stats.expiring_soon }}
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
                         </div>
                     </div>
-                    <div class="col-auto">
-                        <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                    <div class="card-footer-link">
+                        <small class="text-muted">
+                            <i class="fas fa-arrow-right me-1"></i>Details anzeigen
+                        </small>
                     </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
 
     <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card stat-card danger">
-            <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
-                            Abgelaufen
+        <a href="{% url 'members:member_list_expired' %}" class="text-decoration-none">
+            <div class="card stat-card danger hover-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Abgelaufen
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ stats.expired_cards }}
+                            </div>
                         </div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            {{ stats.expired_cards }}
+                        <div class="col-auto">
+                            <i class="fas fa-times-circle fa-2x text-gray-300"></i>
                         </div>
                     </div>
-                    <div class="col-auto">
-                        <i class="fas fa-times-circle fa-2x text-gray-300"></i>
+                    <div class="card-footer-link">
+                        <small class="text-muted">
+                            <i class="fas fa-arrow-right me-1"></i>Details anzeigen
+                        </small>
                     </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
 </div>
 
@@ -222,11 +250,16 @@
     <!-- Ablaufende Ausweise -->
     <div class="col-lg-6 mb-4">
         <div class="card">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h6 class="m-0 font-weight-bold text-warning">
                     <i class="fas fa-exclamation-triangle me-2"></i>
                     Ausweise die bald ablaufen
                 </h6>
+                {% if expiring_members %}
+                <a href="{% url 'members:member_list_expiring' %}" class="btn btn-sm btn-outline-warning">
+                    <i class="fas fa-list me-1"></i>Alle anzeigen
+                </a>
+                {% endif %}
             </div>
             <div class="card-body">
                 {% if expiring_members %}
@@ -273,14 +306,6 @@
                 </div>
                 {% endfor %}
                 
-                {% if expiring_members|length > 5 %}
-                <div class="text-center">
-                    <a href="{% url 'members:member_list' %}?status=expiring" class="btn btn-sm btn-outline-warning">
-                        <i class="fas fa-list me-1"></i>Alle anzeigen
-                    </a>
-                </div>
-                {% endif %}
-                
                 {% else %}
                 <div class="text-center text-success">
                     <i class="fas fa-check-circle fa-2x mb-2"></i>
@@ -304,10 +329,12 @@
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-3 text-center mb-3">
-                        <div class="border rounded p-3">
-                            <h5 class="text-primary mb-1">{{ stats.total_members }}</h5>
-                            <small class="text-muted">Gesamt Mitglieder</small>
-                        </div>
+                        <a href="{% url 'members:member_list' %}" class="text-decoration-none">
+                            <div class="border rounded p-3 hover-stats">
+                                <h5 class="text-primary mb-1">{{ stats.total_members }}</h5>
+                                <small class="text-muted">Gesamt Mitglieder</small>
+                            </div>
+                        </a>
                     </div>
                     <div class="col-md-3 text-center mb-3">
                         <div class="border rounded p-3">
@@ -322,10 +349,12 @@
                         </div>
                     </div>
                     <div class="col-md-3 text-center mb-3">
-                        <div class="border rounded p-3">
-                            <h5 class="text-secondary mb-1">{{ stats.inactive_members }}</h5>
-                            <small class="text-muted">Inaktive Mitglieder</small>
-                        </div>
+                        <a href="{% url 'members:member_list_inactive' %}" class="text-decoration-none">
+                            <div class="border rounded p-3 hover-stats">
+                                <h5 class="text-secondary mb-1">{{ stats.inactive_members }}</h5>
+                                <small class="text-muted">Inaktive Mitglieder</small>
+                            </div>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -338,12 +367,17 @@
 <style>
 .stat-card {
     border-left: 4px solid #007bff;
-    transition: transform 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.stat-card:hover {
+.hover-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+    text-decoration: none;
+}
+
+.hover-card:hover .card-body {
+    background-color: #f8f9fa;
 }
 
 .stat-card.success {
@@ -356,6 +390,23 @@
 
 .stat-card.danger {
     border-left-color: #dc3545;
+}
+
+.card-footer-link {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e9ecef;
+}
+
+.hover-stats {
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.hover-stats:hover {
+    background-color: #f8f9fa;
+    border-color: #007bff !important;
+    transform: translateY(-1px);
 }
 
 .text-xs {
@@ -392,6 +443,22 @@ code {
 
 .badge {
     font-size: 0.75rem;
+}
+
+/* Hover-Effekte für Links */
+a.text-decoration-none:hover {
+    text-decoration: none !important;
+}
+
+/* Karten-Hover-Animation */
+@keyframes cardPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+.hover-card:active {
+    animation: cardPulse 0.3s ease-in-out;
 }
 </style>
 {% endblock %}

@@ -1,3 +1,4 @@
+# members/urls.py
 from django.urls import path
 from . import views
 
@@ -10,6 +11,13 @@ urlpatterns = [
     path('members/<int:pk>/', views.member_detail, name='member_detail'),
     path('members/<int:pk>/edit/', views.member_edit, name='member_edit'),
     path('members/<int:pk>/delete/', views.member_delete, name='member_delete'),
+    
+    # Spezielle gefilterte Ansichten für Dashboard-Kacheln
+    path('members/valid/', views.member_list_valid, name='member_list_valid'),
+    path('members/expiring/', views.member_list_expiring, name='member_list_expiring'),
+    path('members/expired/', views.member_list_expired, name='member_list_expired'),
+    path('members/active/', views.member_list_active, name='member_list_active'),
+    path('members/inactive/', views.member_list_inactive, name='member_list_inactive'),
     
     # Import/Export
     path('import/', views.import_data, name='import_data'),

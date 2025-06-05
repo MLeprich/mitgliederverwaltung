@@ -544,3 +544,137 @@ def download_template(request):
     writer.writerows(template_data)
     
     return response
+
+# Ergänzungen für members/views.py
+
+@login_required
+def member_list_valid(request):
+    """Zeigt nur Mitglieder mit gültigen Ausweisen"""
+    today = date.today()
+    members = Member.objects.filter(
+        is_active=True,
+        valid_until__gt=today
+    )
+    
+    context = _get_filtered_member_context(
+        request, 
+        members, 
+        title="Gültige Ausweise",
+        icon="fas fa-check-circle text-success",
+        description="Mitglieder mit aktuell gültigen Ausweisen"
+    )
+    return render(request, 'members/member_list_filtered.html', context)
+
+@login_required
+def member_list_expiring(request):
+    """Zeigt nur Mitglieder deren Ausweise bald ablaufen"""
+    today = date.today()
+    expiry_threshold = today + timedelta(days=30)
+    
+    members = Member.objects.filter(
+        is_active=True,
+        valid_until__gt=today,
+        valid_until__lte=expiry_threshold
+    )
+    
+    context = _get_filtered_member_context(
+        request,
+        members,
+        title="Laufen bald ab",
+        icon="fas fa-exclamation-triangle text-warning", 
+        description="Ausweise die in den nächsten 30 Tagen ablaufen"
+    )
+    return render(request, 'members/member_list_filtered.html', context)
+
+@login_required
+def member_list_expired(request):
+    """Zeigt nur Mitglieder mit abgelaufenen Ausweisen"""
+    today = date.today()
+    members = Member.objects.filter(
+        is_active=True,
+        valid_until__lte=today
+    )
+    
+    context = _get_filtered_member_context(
+        request,
+        members,
+        title="Abgelaufene Ausweise",
+        icon="fas fa-times-circle text-danger",
+        description="Mitglieder mit abgelaufenen Ausweisen"
+    )
+    return render(request, 'members/member_list_filtered.html', context)
+
+@login_required
+def member_list_active(request):
+    """Zeigt nur aktive Mitglieder"""
+    members = Member.objects.filter(is_active=True)
+    
+    context = _get_filtered_member_context(
+        request,
+        members,
+        title="Aktive Mitglieder",
+        icon="fas fa-users text-primary",
+        description="Alle aktiven Mitglieder"
+    )
+    return render(request, 'members/member_list_filtered.html', context)
+
+@login_required
+def member_list_inactive(request):
+    """Zeigt nur inaktive Mitglieder"""
+    members = Member.objects.filter(is_active=False)
+    
+    context = _get_filtered_member_context(
+        request,
+        members,
+        title="Inaktive Mitglieder", 
+        icon="fas fa-user-slash text-secondary",
+        description="Alle inaktiven Mitglieder"
+    )
+    return render(request, 'members/member_list_filtered.html', context)
+
+def _get_filtered_member_context(request, base_queryset, title, icon, description):
+    """Hilfsfunktion für gefilterte Mitgliederansichten mit Suche und Pagination"""
+    
+    members = base_queryset
+    
+    # Suche (erweitert um Ausweisnummer)
+    search = request.GET.get('search')
+    if search:
+        members = members.filter(
+            Q(first_name__icontains=search) |
+            Q(last_name__icontains=search) |
+            Q(personnel_number__icontains=search) |
+            Q(card_number__icontains=search)
+        )
+    
+    # Mitarbeitertyp Filter
+    member_type = request.GET.get('member_type')
+    if member_type:
+        members = members.filter(member_type=member_type)
+    
+    # Sortierung
+    sort = request.GET.get('sort', 'name')
+    if sort == 'name':
+        members = members.order_by('last_name', 'first_name')
+    elif sort == 'created':
+        members = members.order_by('-created_at')
+    elif sort == 'valid_until':
+        members = members.order_by('valid_until')
+    elif sort == 'card_number':
+        members = members.order_by('card_number')
+    
+    # Pagination
+    paginator = Paginator(members, 25)
+    page = request.GET.get('page')
+    members_page = paginator.get_page(page)
+    
+    return {
+        'object_list': members_page,
+        'title': title,
+        'icon': icon,
+        'description': description,
+        'total_count': base_queryset.count(),
+        'search_value': search or '',
+        'member_type_value': member_type or '',
+        'sort_value': sort,
+    }
