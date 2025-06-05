@@ -227,8 +227,9 @@ def process_import(request, file):
                     except UnicodeDecodeError:
                         df = pd.read_csv(file, encoding='cp1252')
         else:
-            # Excel-Datei mit spezieller Datumsbehandlung
-            df = pd.read_excel(file, date_parser=None)
+            # Excel-Datei mit korrekter Datumsbehandlung
+            # WICHTIG: parse_dates=False verhindert automatische String-Konvertierung
+            df = pd.read_excel(file, parse_dates=False)
         
         # Spalten normalisieren (Umlaute und Sonderzeichen berücksichtigen)
         df.columns = df.columns.str.strip()
@@ -243,23 +244,27 @@ def process_import(request, file):
             if pd.isna(date_value) or not date_value:
                 return None
             
-            # Fall 1: Bereits ein datetime-Objekt (aus Excel)
+            # Fall 1: Bereits ein datetime-Objekt (aus Excel) - WICHTIGSTER FALL!
             if isinstance(date_value, (pd.Timestamp, datetime)):
                 return date_value.date()
             
-            # Fall 2: String-Wert
+            # Fall 2: Python datetime-Objekt aus Excel
+            if hasattr(date_value, 'date') and callable(getattr(date_value, 'date')):
+                return date_value.date()
+            
+            # Fall 3: String-Wert (fallback)
             date_str = str(date_value).strip()
             
-            # Versuchsreihenfolge für verschiedene Formate:
+            # Versuchsreihenfolge für verschiedene String-Formate:
             formats_to_try = [
-                # Deutsches Format
+                # Deutsches Format (häufigste Eingabe)
                 '%d.%m.%Y',
                 '%d.%m.%y',
                 '%d/%m/%Y',
                 '%d/%m/%y',
                 # ISO Format
                 '%Y-%m-%d',
-                # Amerikanisches Format (Fallback)
+                # Amerikanisches Format (Fallback für formatierte Excel-Strings)
                 '%m/%d/%Y',
                 '%m/%d/%y',
             ]
@@ -276,8 +281,7 @@ def process_import(request, file):
                 except ValueError:
                     continue
             
-            # Spezialbehandlung für amerikanisches Format mit Regex
-            import re
+            # Spezialbehandlung für amerikanisches Format mit Regex (nur für Strings)
             american_pattern = r'^(\d{1,2})/(\d{1,2})/(\d{2,4})$'
             match = re.match(american_pattern, date_str)
             
@@ -532,8 +536,8 @@ def export_data(request):
             'Mitarbeitertyp_Code': member.member_type,  # Für Re-Import
             'Ausweisnummer': member.card_number,
             'Ausweisnummer_Praefix': member.card_number_prefix or '',
-            'Ausgestellt_am': member.issued_date.strftime('%d.%m.%Y'),
-            'Gueltig_bis': member.valid_until.strftime('%d.%m.%Y'),
+            'Ausgestellt_am': member.issued_date.strftime('%d.%m.%Y') if member.issued_date else '',
+            'Gueltig_bis': member.valid_until.strftime('%d.%m.%Y') if member.valid_until else '',
             'Manuelle_Gueltigkeit': 'Ja' if member.manual_validity else 'Nein',
             'Aktiv': 'Ja' if member.is_active else 'Nein',
             'Erstellt_am': member.created_at.strftime('%d.%m.%Y %H:%M'),
@@ -579,8 +583,6 @@ def download_template(request):
     response.write('\ufeff')
     
     # Beispieldaten mit allen neuen Feldern
-    # In der download_template Funktion:
-
     template_data = [
         {
             'Vorname': 'Max',
@@ -629,8 +631,6 @@ def download_template(request):
     writer.writerows(template_data)
     
     return response
-
-# Ergänzungen für members/views.py
 
 @login_required
 def member_list_valid(request):
