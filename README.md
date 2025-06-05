@@ -22,7 +22,7 @@ Sehen Sie das System in Aktion:
 
 | Feature | Screenshot | Beschreibung |
 |---------|------------|--------------|
-| **📊 Dashboard** | ![Dashboard](docs/Dashboard.PNG) | Zentrale Übersicht mit Statistiken und Quick-Actions |
+| **📊 Dashboard** | ![Dashboard](docs/Dashbooard.PNG) | Zentrale Übersicht mit Statistiken und Quick-Actions |
 | **👥 Mitgliederliste** | ![Mitglieder](docs/Mitglieder.PNG) | Vollständige Verwaltung mit Suche und Filterung |
 | **📷 Webcam-Integration** | ![Hinzufügen](docs/Mitglieder%20Hinzufuegen.PNG) | Live-Fotoaufnahme für professionelle Passbilder |
 
