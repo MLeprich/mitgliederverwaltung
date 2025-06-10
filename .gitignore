@@ -59,3 +59,28 @@ node_modules/
 
 # Cache
 .cache/
+
+# SQLite Datenbanken
+*.sqlite
+*.sqlite3
+*.db
+
+# Bilder/Photos
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+
+# Backup-Dateien
+*.tar.gz
+*.tar
+*.zip
+backup_*
+
+# Shell-Skripte (Installationsskripte)
+*.sh
+
+# Alternativ: Nur bestimmte Shell-Skripte ignorieren
+# install*.sh
+# setup*.sh
