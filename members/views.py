@@ -958,6 +958,7 @@ def card_creation_list(request):
         },
         # ✅ Füge diese Zeile hinzu:
         'eligible_member_ids': ','.join(str(m.id) for m in eligible_members),
+        'today': date.today(),  # ✅ HINZUGEFÜGT für das Template
     }
     
     return render(request, 'members/card_creation_list.html', context)

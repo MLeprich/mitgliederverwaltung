@@ -149,11 +149,16 @@
                                     <code class="bg-light px-2 py-1 rounded">{{ member.card_number }}</code>
                                 </td>
                                 <td>
-                                    <strong>{{ member.issued_date|date:"d.m.Y" }}</strong><br>
-                                    <small class="text-success">
-                                        <i class="fas fa-clock me-1"></i>Heute erstellt
-                                    </small>
-                                </td>
+									<strong>{{ member.issued_date|date:"d.m.Y" }}</strong><br>
+									<small class="text-success">
+										<i class="fas fa-calendar-plus me-1"></i>
+										{% if member.issued_date == creation_date %}
+											Heute erstellt
+										{% else %}
+											Aktualisiert heute
+										{% endif %}
+									</small>
+								</td>
                                 <td>
                                     <strong>{{ member.valid_until|date:"d.m.Y" }}</strong><br>
                                     <small class="text-muted">
