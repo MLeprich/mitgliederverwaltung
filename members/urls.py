@@ -30,4 +30,6 @@ urlpatterns = [
     path('cards/process/', views.card_creation_process, name='card_creation_process'),
     path('cards/summary/', views.card_creation_summary, name='card_creation_summary'),
     path('cards/check/<int:pk>/', views.check_member_eligibility, name='check_member_eligibility'),
+    path('cardpresso-status/', views.cardpresso_status, name='cardpresso_status'),
+    path('create-cardpresso-manual/', views.create_cardpresso_manual, name='create_cardpresso_manual'),
 ]

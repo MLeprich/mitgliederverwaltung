@@ -9,14 +9,21 @@ from django.utils import timezone
 from datetime import date, datetime, timedelta 
 import pandas as pd
 import csv
+import tempfile
+from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.conf import settings
 import os
-import re 
+import re
+import logging 
 from django.core.files.base import ContentFile
 from io import BytesIO
 from PIL import Image
 from .models import Member
 from .forms import MemberForm, ImportForm
 from django.db import transaction
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -948,7 +955,9 @@ def card_creation_list(request):
             'member_type': member_type or '',
             'status': status or '',
             'search': search or '',
-        }
+        },
+        # ✅ Füge diese Zeile hinzu:
+        'eligible_member_ids': ','.join(str(m.id) for m in eligible_members),
     }
     
     return render(request, 'members/card_creation_list.html', context)
@@ -957,12 +966,14 @@ def card_creation_list(request):
 def card_creation_process(request):
     """
     Verarbeitet die ausgewählten Mitglieder für die Ausweis-Erstellung
+    und erstellt automatisch eine Cardpresso-Datenbank
     """
     if request.method != 'POST':
         messages.error(request, 'Ungültige Anfrage.')
         return redirect('members:card_creation_list')
     
     selected_member_ids = request.POST.getlist('selected_members[]')
+    create_cardpresso = request.POST.get('create_cardpresso', False)  # Neuer Parameter
     
     if not selected_member_ids:
         messages.error(request, 'Bitte wählen Sie mindestens ein Mitglied aus.')
@@ -985,6 +996,8 @@ def card_creation_process(request):
     # Batch-Update mit Transaktion
     updated_count = 0
     updated_members = []
+    cardpresso_success = False
+    cardpresso_path = None
     
     try:
         with transaction.atomic():
@@ -1005,7 +1018,7 @@ def card_creation_process(request):
                 updated_members.append(member)
                 updated_count += 1
         
-        # Erfolgsmeldung
+        # Erfolgsmeldung für Ausweis-Erstellung
         if updated_count == 1:
             messages.success(
                 request, 
@@ -1017,20 +1030,71 @@ def card_creation_process(request):
                 f'{updated_count} Ausweise wurden erfolgreich erstellt.'
             )
         
-        # Zur Übersicht weiterleiten
-        return redirect('members:card_creation_summary', 
-                       member_ids=','.join(str(m.id) for m in updated_members))
+        # Cardpresso-Datenbank erstellen wenn gewünscht
+        if create_cardpresso or request.POST.get('auto_cardpresso', True):  # Auto-Erstellung
+            try:
+                logger.info("Starte Cardpresso-Datenbank Erstellung...")
+                
+                # Eindeutiges Ausgabeverzeichnis erstellen
+                timestamp = issue_date.strftime("%Y%m%d_%H%M%S")
+                output_dir = f"cardpresso_export_{timestamp}"
+                
+                # Management Command aufrufen
+                call_command(
+                    'create_cardpresso_db',
+                    output_dir=output_dir,
+                    clean=True,
+                    verbosity=1,  # Logging-Level
+                    stdout=open(os.devnull, 'w'),  # Output unterdrücken für Web-Interface
+                )
+                
+                cardpresso_path = os.path.abspath(output_dir)
+                cardpresso_success = True
+                
+                logger.info(f"Cardpresso-Datenbank erfolgreich erstellt: {cardpresso_path}")
+                
+                messages.success(
+                    request,
+                    f'✅ Cardpresso-Datenbank wurde erfolgreich erstellt!\n'
+                    f'📁 Pfad: {cardpresso_path}\n'
+                    f'💾 {updated_count} Mitglieder exportiert'
+                )
+                
+            except CommandError as e:
+                logger.error(f"Cardpresso Command Fehler: {e}")
+                messages.warning(
+                    request,
+                    f'Ausweise wurden erstellt, aber Cardpresso-Export fehlgeschlagen: {str(e)}'
+                )
+                
+            except Exception as e:
+                logger.error(f"Unerwarteter Cardpresso Fehler: {e}")
+                messages.warning(
+                    request,
+                    f'Ausweise wurden erstellt, aber Cardpresso-Export hatte Probleme: {str(e)}'
+                )
+        
+        # Zur Übersicht weiterleiten mit zusätzlichen Parametern
+        redirect_params = f"member_ids={','.join(str(m.id) for m in updated_members)}"
+        if cardpresso_success and cardpresso_path:
+            redirect_params += f"&cardpresso_path={cardpresso_path}"
+        
+        return redirect(f"{reverse('members:card_creation_summary')}?{redirect_params}")
     
     except Exception as e:
+        logger.error(f"Fehler bei der Ausweis-Erstellung: {e}")
         messages.error(request, f'Fehler bei der Ausweis-Erstellung: {str(e)}')
         return redirect('members:card_creation_list')
+        
+        
 
 @login_required
 def card_creation_summary(request):
     """
-    Zeigt eine Zusammenfassung der erstellten Ausweise
+    Zeigt eine Zusammenfassung der erstellten Ausweise mit Cardpresso-Info
     """
     member_ids = request.GET.get('member_ids', '')
+    cardpresso_path = request.GET.get('cardpresso_path', '')
     
     if not member_ids:
         messages.error(request, 'Keine Mitglieder-IDs gefunden.')
@@ -1044,10 +1108,27 @@ def card_creation_summary(request):
             messages.error(request, 'Keine Mitglieder gefunden.')
             return redirect('members:card_creation_list')
         
+        # Cardpresso-Info vorbereiten
+        cardpresso_info = None
+        if cardpresso_path and os.path.exists(cardpresso_path):
+            # Statistiken aus dem Verzeichnis lesen
+            db_path = os.path.join(cardpresso_path, 'database', 'cardpresso_indexed.sqlite')
+            images_path = os.path.join(cardpresso_path, 'images')
+            
+            cardpresso_info = {
+                'path': cardpresso_path,
+                'db_path': db_path,
+                'images_path': images_path,
+                'db_exists': os.path.exists(db_path),
+                'images_count': len([f for f in os.listdir(images_path) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]) if os.path.exists(images_path) else 0,
+                'ready_for_cardpresso': os.path.exists(db_path)
+            }
+        
         context = {
             'created_members': created_members,
             'creation_date': timezone.now().date(),
             'total_count': created_members.count(),
+            'cardpresso_info': cardpresso_info,
         }
         
         return render(request, 'members/card_creation_summary.html', context)
@@ -1055,6 +1136,81 @@ def card_creation_summary(request):
     except ValueError:
         messages.error(request, 'Ungültige Mitglieder-IDs.')
         return redirect('members:card_creation_list')
+
+
+# Neue AJAX-View für Cardpresso-Status
+@login_required
+def cardpresso_status(request):
+    """
+    AJAX-Endpoint für Cardpresso-Datenbank Status
+    """
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Nur GET erlaubt'}, status=405)
+    
+    try:
+        # Letztes Cardpresso-Verzeichnis finden
+        cardpresso_dirs = [d for d in os.listdir('.') if d.startswith('cardpresso_export_')]
+        
+        if not cardpresso_dirs:
+            return JsonResponse({
+                'exists': False,
+                'message': 'Keine Cardpresso-Datenbank gefunden'
+            })
+        
+        # Neuestes Verzeichnis
+        latest_dir = sorted(cardpresso_dirs)[-1]
+        db_path = os.path.join(latest_dir, 'database', 'cardpresso_indexed.sqlite')
+        images_path = os.path.join(latest_dir, 'images')
+        
+        return JsonResponse({
+            'exists': os.path.exists(db_path),
+            'path': os.path.abspath(latest_dir),
+            'db_path': os.path.abspath(db_path) if os.path.exists(db_path) else None,
+            'images_count': len([f for f in os.listdir(images_path) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]) if os.path.exists(images_path) else 0,
+            'created': os.path.getctime(latest_dir) if os.path.exists(latest_dir) else None
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# Neue View für manuellen Cardpresso-Export
+@login_required 
+def create_cardpresso_manual(request):
+    """
+    Manuelle Cardpresso-Datenbank Erstellung (ohne Ausweis-Update)
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+    
+    try:
+        # Eindeutiges Ausgabeverzeichnis
+        from django.utils import timezone
+        timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
+        output_dir = f"cardpresso_manual_{timestamp}"
+        
+        # Command aufrufen
+        call_command(
+            'create_cardpresso_db',
+            output_dir=output_dir,
+            clean=True,
+            verbosity=1
+        )
+        
+        cardpresso_path = os.path.abspath(output_dir)
+        
+        return JsonResponse({
+            'success': True,
+            'path': cardpresso_path,
+            'message': f'Cardpresso-Datenbank erfolgreich erstellt: {cardpresso_path}'
+        })
+        
+    except Exception as e:
+        logger.error(f"Manueller Cardpresso-Export Fehler: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
 
 @login_required
 def check_member_eligibility(request, pk):
