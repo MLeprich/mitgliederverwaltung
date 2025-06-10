@@ -1,3 +1,5 @@
+# members/management/commands/create_cardpresso_db.py
+
 import os
 import sqlite3
 import shutil
@@ -7,33 +9,52 @@ from django.conf import settings
 from members.models import Member
 
 class Command(BaseCommand):
-    help = 'Create Cardpresso-optimized SQLite database with correct image paths'
+    help = 'Erstellt erweiterte Cardpresso-SQLite-Datenbank mit korrekter Struktur'
     
     def add_arguments(self, parser):
         parser.add_argument(
-            '--output',
-            default='cardpresso.sqlite',
-            help='Output SQLite file for Cardpresso'
+            '--output-dir',
+            default='cardpresso_project',
+            help='Output-Verzeichnis für Cardpresso-Projekt'
         )
         parser.add_argument(
-            '--copy-images',
+            '--clean',
             action='store_true',
-            help='Copy images to cardpresso_images folder'
+            help='Lösche existierendes Verzeichnis vor Erstellung'
         )
     
     def handle(self, *args, **options):
-        output_path = options['output']
-        copy_images = options['copy_images']
+        output_dir = options['output_dir']
+        clean = options['clean']
         
-        # Lösche alte Datenbank
-        if os.path.exists(output_path):
-            os.remove(output_path)
+        self.stdout.write("🔄 Erstelle erweiterte Cardpresso-Datenbank...")
         
-        # Erstelle neue SQLite-Datenbank
-        conn = sqlite3.connect(output_path)
+        # 1. Verzeichnisstruktur erstellen
+        if clean and os.path.exists(output_dir):
+            self.stdout.write(f"🗑️  Lösche existierendes Verzeichnis: {output_dir}")
+            shutil.rmtree(output_dir)
+        
+        # Verzeichnisse erstellen
+        database_dir = os.path.join(output_dir, 'database')
+        images_dir = os.path.join(output_dir, 'images')
+        
+        os.makedirs(database_dir, exist_ok=True)
+        os.makedirs(images_dir, exist_ok=True)
+        
+        self.stdout.write(f"📁 Verzeichnisse erstellt: {output_dir}")
+        
+        # 2. SQLite-Datenbank erstellen
+        db_path = os.path.join(database_dir, 'cardpresso_indexed.sqlite')
+        
+        if os.path.exists(db_path):
+            os.remove(db_path)
+            self.stdout.write("🗑️  Alte Datenbank gelöscht")
+        
+        conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
-        # Cardpresso-optimierte Tabelle
+        # 3. Erweiterte Tabelle mit ALLEN Spalten erstellen (GENAU WIE IM ORIGINAL)
+        self.stdout.write("📊 Erstelle Tabelle mit erweiterter Struktur...")
         cursor.execute('''
             CREATE TABLE members (
                 id INTEGER PRIMARY KEY,
@@ -41,105 +62,174 @@ class Command(BaseCommand):
                 vorname TEXT,
                 nachname TEXT,
                 vollname TEXT,
+                telefon TEXT,
+                geburtsdatum TEXT,
+                ausweisnummer TEXT,
                 kartenprefix TEXT,
                 kartennummer TEXT,
-                vollkartennummer TEXT,
-                mitgliedertyp TEXT,
-                geburtsdatum TEXT,
                 ausstellungsdatum TEXT,
                 gueltig_bis TEXT,
+                mitgliedertyp TEXT,
                 aktiv TEXT,
-                foto_pfad TEXT,
-                foto_dateiname TEXT,
-                erstellt_am TEXT,
-                aktualisiert_am TEXT
+                photo TEXT
             )
         ''')
         
-        # Bilder-Verzeichnis vorbereiten
-        if copy_images:
-            images_dir = 'cardpresso_images'
-            if os.path.exists(images_dir):
-                shutil.rmtree(images_dir)
-            os.makedirs(images_dir, exist_ok=True)
-        
-        # Mitglieder exportieren
-        self.stdout.write("🔄 Exportiere Mitglieder für Cardpresso...")
-        
-        exported_count = 0
+        # 4. Mitglieder aus Django-Modell exportieren
+        count = 0
         foto_count = 0
         
-        for member in Member.objects.all():
-            # Foto-Pfad verarbeiten (profile_picture statt photo!)
-            foto_pfad = ""
-            foto_dateiname = ""
-            
-            if member.profile_picture:
-                if copy_images:
-                    # Kopiere Bild in cardpresso_images/
-                    original_path = member.profile_picture.path
-                    if os.path.exists(original_path):
-                        foto_dateiname = f"member_{member.id}_{os.path.basename(original_path)}"
-                        new_path = os.path.join(images_dir, foto_dateiname)
-                        shutil.copy2(original_path, new_path)
-                        foto_pfad = os.path.abspath(new_path)
+        self.stdout.write("👥 Exportiere Mitglieder...")
+        
+        try:
+            for member in Member.objects.all():
+                photo_name = ""
+                
+                # Foto-Verarbeitung (erweitert wie im Original)
+                if member.profile_picture and os.path.exists(member.profile_picture.path):
+                    original_filename = os.path.basename(member.profile_picture.path)
+                    photo_name = os.path.splitext(original_filename)[0]
+                    
+                    source_path = member.profile_picture.path
+                    target_path = os.path.join(images_dir, original_filename)
+                    
+                    try:
+                        shutil.copy2(source_path, target_path)
                         foto_count += 1
-                    else:
-                        self.stdout.write(f"⚠️  Foto nicht gefunden: {original_path}")
+                        self.stdout.write(f"📸 Foto kopiert: {original_filename}")
+                    except Exception as e:
+                        self.stdout.write(f"❌ Fehler bei {original_filename}: {e}")
+                        photo_name = ""
                 else:
-                    # Verwende vollständigen Pfad zur Original-Datei
-                    if os.path.exists(member.profile_picture.path):
-                        foto_pfad = os.path.abspath(member.profile_picture.path)
-                        foto_dateiname = os.path.basename(member.profile_picture.path)
-                        foto_count += 1
-            
-            # Vollname und Kartennummer zusammenstellen
-            vollname = f"{member.first_name or ''} {member.last_name or ''}".strip()
-            vollkartennummer = f"{member.card_number_prefix or ''}{member.card_number or ''}".strip()
-            
-            # Daten einfügen
-            cursor.execute('''
-                INSERT INTO members (
-                    id, personalnummer, vorname, nachname, vollname,
-                    kartenprefix, kartennummer, vollkartennummer, mitgliedertyp,
-                    geburtsdatum, ausstellungsdatum, gueltig_bis, aktiv,
-                    foto_pfad, foto_dateiname, erstellt_am, aktualisiert_am
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                member.id,
-                member.personnel_number or '',
-                member.first_name or '',
-                member.last_name or '',
-                vollname,
-                member.card_number_prefix or '',
-                member.card_number or '',
-                vollkartennummer,
-                member.get_member_type_display() if hasattr(member, 'get_member_type_display') else member.member_type,
-                member.birth_date.strftime('%Y-%m-%d') if member.birth_date else '',
-                member.issued_date.strftime('%Y-%m-%d') if member.issued_date else '',
-                member.valid_until.strftime('%Y-%m-%d') if member.valid_until else '',
-                'Ja' if member.is_active else 'Nein',
-                foto_pfad,
-                foto_dateiname,
-                member.created_at.strftime('%Y-%m-%d %H:%M:%S') if member.created_at else '',
-                member.updated_at.strftime('%Y-%m-%d %H:%M:%S') if member.updated_at else ''
-            ))
-            
-            exported_count += 1
+                    # Suche nach Bildern im Format vorname.nachname (wie im Original)
+                    if member.first_name and member.last_name:
+                        possible_names = [
+                            f"{member.first_name.lower()}.{member.last_name.lower()}",
+                            f"{member.first_name}.{member.last_name}",
+                        ]
+                        
+                        for base_name in possible_names:
+                            for ext in ['.jpg', '.jpeg', '.png']:
+                                test_filename = f"{base_name}{ext}"
+                                # Prüfe in MEDIA_ROOT/profile_pics/
+                                test_path = os.path.join(settings.MEDIA_ROOT, 'profile_pics', test_filename)
+                                
+                                if os.path.exists(test_path):
+                                    photo_name = base_name
+                                    target_path = os.path.join(images_dir, test_filename)
+                                    
+                                    try:
+                                        shutil.copy2(test_path, target_path)
+                                        foto_count += 1
+                                        self.stdout.write(f"📸 Foto gefunden und kopiert: {test_filename}")
+                                        break
+                                    except Exception as e:
+                                        self.stdout.write(f"❌ Fehler beim Kopieren von {test_filename}: {e}")
+                            
+                            if photo_name:
+                                break
+                
+                # Vollständige Ausweisnummer erstellen (wie im Original)
+                ausweisnummer = f"{member.card_number_prefix or ''}{member.card_number or ''}".strip()
+                
+                # Vollname erstellen
+                vollname = f"{member.first_name or ''} {member.last_name or ''}".strip()
+                
+                # Daten in SQLite einfügen (ERWEITERT mit ALLEN Spalten wie im Original!)
+                cursor.execute('''
+                    INSERT INTO members 
+                    (id, personalnummer, vorname, nachname, vollname, telefon, geburtsdatum,
+                     ausweisnummer, kartenprefix, kartennummer, ausstellungsdatum, gueltig_bis,
+                     mitgliedertyp, aktiv, photo)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    member.id,
+                    member.personnel_number or '',
+                    member.first_name or '',
+                    member.last_name or '',
+                    vollname,
+                    '123-456-789',  # Dummy-Telefon (falls nicht vorhanden) - wie im Original
+                    member.birth_date.strftime('%d.%m.%Y') if member.birth_date else '',
+                    ausweisnummer,  # Vollständige Ausweisnummer
+                    member.card_number_prefix or '',
+                    member.card_number or '',
+                    member.issued_date.strftime('%d.%m.%Y') if member.issued_date else '',
+                    member.valid_until.strftime('%d.%m.%Y') if member.valid_until else '',
+                    member.get_member_type_display() if hasattr(member, 'get_member_type_display') else member.member_type,
+                    'JA' if member.is_active else 'NEIN',
+                    photo_name
+                ))
+                count += 1
+                
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"❌ Fehler beim Exportieren der Mitglieder: {e}"))
+            conn.close()
+            return
         
         conn.commit()
+        
+        # 5. Erfolgs-Meldung und Statistiken (wie im Original)
+        self.stdout.write(self.style.SUCCESS(f"\n✅ Erweiterte Cardpresso-Datenbank erstellt!"))
+        self.stdout.write(f"📊 {count} Mitglieder exportiert")
+        self.stdout.write(f"📸 {foto_count} Fotos kopiert")
+        
+        # 6. Beispiel-Daten anzeigen (wie im Original)
+        cursor.execute("""
+            SELECT vollname, ausweisnummer, ausstellungsdatum, gueltig_bis, photo 
+            FROM members 
+            WHERE ausweisnummer != '' OR photo != '' 
+            LIMIT 5
+        """)
+        
+        self.stdout.write(f"\n📋 Beispiel-Daten:")
+        self.stdout.write(f"{'Name':<20} {'Ausweis':<15} {'Ausgestellt':<12} {'Gültig bis':<12} {'Foto'}")
+        self.stdout.write("-" * 80)
+        
+        for row in cursor.fetchall():
+            name = (row[0] or '')[:19]
+            ausweis = (row[1] or '')[:14] 
+            ausgestellt = (row[2] or '')[:11]
+            gueltig = (row[3] or '')[:11]
+            foto = '✅' if row[4] else '❌'
+            self.stdout.write(f"{name:<20} {ausweis:<15} {ausgestellt:<12} {gueltig:<12} {foto}")
+        
+        # 7. Statistiken (wie im Original)
+        cursor.execute("SELECT COUNT(*) FROM members WHERE ausweisnummer != ''")
+        mit_ausweis = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT COUNT(*) FROM members WHERE photo != ''")
+        mit_foto = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT COUNT(*) FROM members WHERE gueltig_bis != ''")
+        mit_gueltigkeitsdatum = cursor.fetchone()[0]
+        
+        self.stdout.write(f"\n📊 Statistiken:")
+        self.stdout.write(f"  👤 Mitglieder gesamt: {count}")
+        self.stdout.write(f"  🆔 Mit Ausweisnummer: {mit_ausweis}")
+        self.stdout.write(f"  📸 Mit Foto: {mit_foto}")
+        self.stdout.write(f"  📅 Mit Gültigkeitsdatum: {mit_gueltigkeitsdatum}")
+        
         conn.close()
         
-        # Erfolgs-Meldung
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"✅ Cardpresso-Datenbank erstellt!\n"
-                f"   📁 Datei: {os.path.abspath(output_path)}\n"
-                f"   👥 {exported_count} Mitglieder exportiert\n"
-                f"   📸 {foto_count} Fotos gefunden\n"
-                f"   📸 Bilder {'kopiert' if copy_images else 'verlinkt'}\n\n"
-                f"🎯 In Cardpresso verwenden:\n"
-                f"   Tabelle: members\n"
-                f"   Foto-Spalte: foto_pfad\n"
-            )
-        )
+        # 8. Abschlussinformationen (wie im Original)
+        self.stdout.write(self.style.SUCCESS(f"\n🎯 Cardpresso-Projekt bereit:"))
+        self.stdout.write(f"   📁 Pfad: {os.path.abspath(output_dir)}/")
+        self.stdout.write(f"   💾 Datenbank: database/cardpresso_indexed.sqlite")
+        self.stdout.write(f"   🖼️  Bilder: images/")
+        self.stdout.write(f"\n📋 Verfügbare Spalten für Cardpresso:")
+        self.stdout.write(f"   - personalnummer")
+        self.stdout.write(f"   - vorname, nachname, vollname")
+        self.stdout.write(f"   - ausweisnummer (Vollständig)")
+        self.stdout.write(f"   - kartenprefix, kartennummer (Einzeln)")
+        self.stdout.write(f"   - ausstellungsdatum")
+        self.stdout.write(f"   - gueltig_bis")
+        self.stdout.write(f"   - mitgliedertyp")
+        self.stdout.write(f"   - aktiv")
+        self.stdout.write(f"   - photo (für Bildverknüpfung)")
+        
+        self.stdout.write(self.style.SUCCESS(f"\n🚀 Verwendung in Cardpresso:"))
+        self.stdout.write(f"   1. Cardpresso öffnen")
+        self.stdout.write(f"   2. Datenbank verbinden: {os.path.abspath(db_path)}")
+        self.stdout.write(f"   3. Tabelle auswählen: members")
+        self.stdout.write(f"   4. Spalten zuordnen nach Bedarf")
+        self.stdout.write(f"   5. Bildpfad: {os.path.abspath(images_dir)}/")
