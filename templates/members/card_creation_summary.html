@@ -19,11 +19,83 @@
     </div>
 </div>
 
-<!-- Zusammenfassung -->
+<!-- Cardpresso Integration Widget -->
+{% if cardpresso_info %}
+<div class="row justify-content-center mb-4">
+    <div class="col-lg-8">
+        <div class="card border-success">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-database me-2"></i>
+                    Cardpresso-Datenbank erstellt
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if cardpresso_info.ready_for_cardpresso %}
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-check-circle text-success fa-2x me-3"></i>
+                                <div>
+                                    <h6 class="mb-1">Bereit für Cardpresso!</h6>
+                                    <small class="text-muted">{{ cardpresso_info.path }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button class="btn btn-success" onclick="openCardpressoInstructions()">
+                                <i class="fas fa-print me-2"></i>Druckanleitung
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <div class="p-3 border rounded bg-light">
+                                <h5 class="text-success mb-1">{{ total_count }}</h5>
+                                <small class="text-muted">Mitglieder exportiert</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 border rounded bg-light">
+                                <h5 class="text-info mb-1">{{ cardpresso_info.images_count }}</h5>
+                                <small class="text-muted">Bilder kopiert</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 border rounded bg-light">
+                                <h5 class="text-primary mb-1">✓</h5>
+                                <small class="text-muted">DB bereit</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            <strong>Nächster Schritt:</strong> Öffnen Sie Cardpresso und verbinden Sie die Datenbank 
+                            <code>{{ cardpresso_info.db_path }}</code>
+                        </small>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Cardpresso-Datenbank konnte nicht vollständig erstellt werden.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Zusammenfassung der erstellten Ausweise -->
 <div class="row justify-content-center mb-4">
     <div class="col-lg-8">
         <div class="card shadow">
-            <div class="card-header bg-success text-white">
+            <div class="card-header bg-primary text-white">
                 <h4 class="mb-0">
                     <i class="fas fa-clipboard-list me-2"></i>
                     Erstellte Ausweise
@@ -131,7 +203,7 @@
     </div>
 </div>
 
-<!-- Aktionen -->
+<!-- Erweiterte Aktionen -->
 <div class="row justify-content-center">
     <div class="col-lg-8">
         <div class="card">
@@ -142,37 +214,39 @@
             </div>
             <div class="card-body">
                 <div class="row">
+                    {% if cardpresso_info.ready_for_cardpresso %}
                     <div class="col-md-4 mb-3">
                         <div class="d-grid">
-                            <button class="btn btn-primary" onclick="printCards()">
-                                <i class="fas fa-print me-2"></i>Ausweise drucken
+                            <button class="btn btn-success" onclick="openCardpressoProject()">
+                                <i class="fas fa-print me-2"></i>Cardpresso öffnen
                             </button>
                         </div>
                         <small class="text-muted mt-1 d-block">
-                            Alle erstellten Ausweise drucken
+                            Drucken mit Cardpresso
+                        </small>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="col-md-4 mb-3">
+                        <div class="d-grid">
+                            <button class="btn btn-primary" onclick="printCardsList()">
+                                <i class="fas fa-list me-2"></i>Druckliste erstellen
+                            </button>
+                        </div>
+                        <small class="text-muted mt-1 d-block">
+                            PDF-Liste für Kontrolle
                         </small>
                     </div>
                     
                     <div class="col-md-4 mb-3">
                         <div class="d-grid">
-                            <a href="{% url 'members:export_data' %}?format=csv&member_ids={{ created_members|join:',' by:'id' }}" 
-                               class="btn btn-success">
+                            <a href="{% url 'members:export_data' %}?format=csv&member_ids={{ created_members|join:',' }}" 
+                               class="btn btn-info">
                                 <i class="fas fa-file-csv me-2"></i>Liste exportieren
                             </a>
                         </div>
                         <small class="text-muted mt-1 d-block">
                             Erstellte Ausweise als CSV
-                        </small>
-                    </div>
-                    
-                    <div class="col-md-4 mb-3">
-                        <div class="d-grid">
-                            <button class="btn btn-info" onclick="generateReport()">
-                                <i class="fas fa-file-pdf me-2"></i>Bericht erstellen
-                            </button>
-                        </div>
-                        <small class="text-muted mt-1 d-block">
-                            PDF-Bericht der Erstellung
                         </small>
                     </div>
                 </div>
@@ -197,33 +271,70 @@
     </div>
 </div>
 
-<!-- Statistik Summary -->
-<div class="row justify-content-center mt-4">
-    <div class="col-lg-8">
-        <div class="alert alert-success">
-            <div class="row text-center">
-                <div class="col-md-3">
-                    <h4 class="text-success mb-1">{{ total_count }}</h4>
-                    <small>Ausweise erstellt</small>
+<!-- Cardpresso Anleitung Modal -->
+<div class="modal fade" id="cardpressoInstructionsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-print me-2"></i>Cardpresso Druckanleitung
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-12">
+                        <h6><i class="fas fa-step-forward me-2"></i>Schritt-für-Schritt Anleitung:</h6>
+                        <ol class="list-group list-group-numbered">
+                            <li class="list-group-item">
+                                <strong>Cardpresso öffnen</strong><br>
+                                <small class="text-muted">Starten Sie Cardpresso auf Ihrem System</small>
+                            </li>
+                            <li class="list-group-item">
+                                <strong>Datenbank verbinden</strong><br>
+                                <small class="text-muted">
+                                    Gehen Sie zu: <code>Data → Database connections</code><br>
+                                    Wählen Sie: <code>SQLite</code><br>
+                                    {% if cardpresso_info %}
+                                    Pfad: <code>{{ cardpresso_info.db_path }}</code>
+                                    {% endif %}
+                                </small>
+                            </li>
+                            <li class="list-group-item">
+                                <strong>Tabelle auswählen</strong><br>
+                                <small class="text-muted">Wählen Sie die Tabelle: <code>members</code></small>
+                            </li>
+                            <li class="list-group-item">
+                                <strong>Felder zuordnen</strong><br>
+                                <small class="text-muted">
+                                    • Name: <code>vollname</code><br>
+                                    • Ausweisnummer: <code>ausweisnummer</code><br>
+                                    • Foto: <code>photo</code>
+                                    {% if cardpresso_info %}
+                                    (Bildpfad: <code>{{ cardpresso_info.images_path }}/</code>)<br>
+                                    {% endif %}
+                                    • Weitere Felder nach Bedarf
+                                </small>
+                            </li>
+                            <li class="list-group-item">
+                                <strong>Design anpassen</strong><br>
+                                <small class="text-muted">Passen Sie Ihr Ausweis-Design an und starten Sie den Druck</small>
+                            </li>
+                        </ol>
+                        
+                        <div class="alert alert-info mt-3">
+                            <i class="fas fa-lightbulb me-2"></i>
+                            <strong>Tipp:</strong> Die Bilder sind bereits auf Dienstausweis-Format (267x400px) optimiert 
+                            und haben 300 DPI für beste Druckqualität.
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-3">
-                    <h4 class="text-success mb-1">{{ creation_date|date:"d.m.Y" }}</h4>
-                    <small>Ausstellungsdatum</small>
-                </div>
-                <div class="col-md-3">
-                    <h4 class="text-success mb-1">
-                        {% for member in created_members %}
-                            {% if forloop.first %}
-                                {{ member.valid_until|date:"d.m.Y" }}
-                            {% endif %}
-                        {% endfor %}
-                    </h4>
-                    <small>Erste Gültigkeit bis</small>
-                </div>
-                <div class="col-md-3">
-                    <h4 class="text-success mb-1">100%</h4>
-                    <small>Erfolgreich</small>
-                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                <button type="button" class="btn btn-primary" onclick="openCardpressoFolder()">
+                    <i class="fas fa-folder-open me-2"></i>Ordner öffnen
+                </button>
             </div>
         </div>
     </div>
@@ -325,17 +436,111 @@ code {
 
 {% block extra_js %}
 <script>
-function printCards() {
-    // Hier wird später die Integration mit Cardpresso oder einem anderen Drucksystem implementiert
-    alert('Druckfunktion wird mit Cardpresso-Integration implementiert.\n\nDie Ausweise sind bereit zum Druck.');
+function openCardpressoInstructions() {
+    const modal = new bootstrap.Modal(document.getElementById('cardpressoInstructionsModal'));
+    modal.show();
 }
 
-function generateReport() {
-    // PDF-Bericht generieren
-    alert('PDF-Berichtfunktion wird in einer zukünftigen Version implementiert.');
+function openCardpressoProject() {
+    {% if cardpresso_info %}
+    const path = "{{ cardpresso_info.path }}";
+    
+    // Zeige Anleitung
+    openCardpressoInstructions();
+    
+    // Zusätzlich: Versuche Ordner zu öffnen (funktioniert nur lokal)
+    if (navigator.platform.includes('Win')) {
+        // Windows
+        try {
+            window.open(`file:///${path.replace(/\\/g, '/')}`);
+        } catch (e) {
+            console.log('Ordner konnte nicht automatisch geöffnet werden');
+        }
+    }
+    {% else %}
+    alert('Cardpresso-Datenbank nicht verfügbar.');
+    {% endif %}
 }
 
-// Erfolgs-Sound abspielen (optional)
+function openCardpressoFolder() {
+    {% if cardpresso_info %}
+    const path = "{{ cardpresso_info.path }}";
+    alert(`Öffnen Sie diesen Ordner in Ihrem Dateimanager:\n\n${path}`);
+    
+    // Zusätzlich: Versuche den Ordner zu öffnen
+    try {
+        if (window.electronAPI) {
+            // Falls in Electron App
+            window.electronAPI.openFolder(path);
+        } else {
+            // Browser - zeige Pfad
+            navigator.clipboard.writeText(path).then(() => {
+                alert('Pfad wurde in die Zwischenablage kopiert!');
+            }).catch(() => {
+                console.log('Zwischenablage nicht verfügbar');
+            });
+        }
+    } catch (e) {
+        console.log('Ordner-Öffnung nicht unterstützt');
+    }
+    {% endif %}
+}
+
+function printCardsList() {
+    // Öffne Druckvorschau für die Tabelle
+    const printContent = document.querySelector('.table-responsive').innerHTML;
+    const printWindow = window.open('', '_blank');
+    
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Erstellte Ausweise - Druckliste</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+            <style>
+                @media print {
+                    .no-print { display: none; }
+                    body { font-size: 12px; }
+                    table { font-size: 11px; }
+                }
+                .header {
+                    text-align: center;
+                    margin-bottom: 30px;
+                    border-bottom: 2px solid #dee2e6;
+                    padding-bottom: 20px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h2>Erstellte Ausweise - ${new Date().toLocaleDateString('de-DE')}</h2>
+                    <p class="text-muted">{{ total_count }} Ausweise erstellt</p>
+                </div>
+                ${printContent}
+                <div class="mt-4 text-center no-print">
+                    <button onclick="window.print()" class="btn btn-primary">
+                        <i class="fas fa-print me-2"></i>Drucken
+                    </button>
+                    <button onclick="window.close()" class="btn btn-secondary">
+                        Schließen
+                    </button>
+                </div>
+            </div>
+            <script>
+                // Auto-print nach dem Laden
+                window.onload = function() {
+                    setTimeout(() => window.print(), 500);
+                };
+            <\/script>
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+}
+
+// Erfolgs-Animation
 document.addEventListener('DOMContentLoaded', function() {
     // Subtle success animation
     const successIcon = document.querySelector('.fa-check-circle');
@@ -347,14 +552,52 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Auto-scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Cardpresso-Erfolg Toast anzeigen
+    {% if cardpresso_info.ready_for_cardpresso %}
+    setTimeout(() => {
+        showSuccessToast('Cardpresso-Datenbank bereit!', 'Die Datenbank wurde erfolgreich erstellt und ist bereit für den Druck.');
+    }, 1000);
+    {% endif %}
 });
+
+function showSuccessToast(title, message) {
+    // Erstelle Toast-Benachrichtigung
+    const toastHtml = `
+        <div class="toast align-items-center text-white bg-success border-0" role="alert" style="position: fixed; top: 20px; right: 20px; z-index: 1055;">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <strong>${title}</strong><br>
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', toastHtml);
+    const toastElement = document.querySelector('.toast:last-child');
+    const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+    toast.show();
+    
+    // Toast nach dem Ausblenden entfernen
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
+}
 
 // Keyboard shortcuts
 document.addEventListener('keydown', function(e) {
     // P für Print
     if (e.key === 'p' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        printCards();
+        printCardsList();
+    }
+    
+    // C für Cardpresso
+    if (e.key === 'c' && (e.ctrlKey || e.metaKey) && e.shiftKey) {
+        e.preventDefault();
+        openCardpressoProject();
     }
     
     // Escape für zurück zum Dashboard
