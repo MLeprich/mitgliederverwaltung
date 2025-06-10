@@ -159,39 +159,87 @@
     </div>
 
     <!-- Schnellaktionen -->
-    <div class="col-lg-6 mb-4">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="m-0 font-weight-bold text-primary">
-                    <i class="fas fa-bolt me-2"></i>Schnellaktionen
-                </h6>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-sm-6 mb-3">
-                        <a href="{% url 'members:member_add' %}" class="btn btn-primary w-100">
-                            <i class="fas fa-user-plus me-2"></i>Neues Mitglied
-                        </a>
-                    </div>
-                    <div class="col-sm-6 mb-3">
-                        <a href="{% url 'members:member_list' %}" class="btn btn-info w-100">
-                            <i class="fas fa-list me-2"></i>Alle Mitglieder
-                        </a>
-                    </div>
-                    <div class="col-sm-6 mb-3">
-                        <a href="{% url 'members:import_data' %}" class="btn btn-success w-100">
-                            <i class="fas fa-file-import me-2"></i>Daten importieren
-                        </a>
-                    </div>
-                    <div class="col-sm-6 mb-3">
-                        <a href="{% url 'members:export_data' %}?format=csv" class="btn btn-warning w-100">
-                            <i class="fas fa-file-export me-2"></i>CSV Export
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+	<div class="col-lg-6 mb-4">
+		<div class="card">
+			<div class="card-header">
+				<h6 class="m-0 font-weight-bold text-primary">
+					<i class="fas fa-bolt me-2"></i>Schnellaktionen
+				</h6>
+			</div>
+			<div class="card-body">
+				<div class="row">
+					<div class="col-sm-6 mb-3">
+						<a href="{% url 'members:member_add' %}" class="btn btn-primary w-100">
+							<i class="fas fa-user-plus me-2"></i>Neues Mitglied
+						</a>
+					</div>
+					<div class="col-sm-6 mb-3">
+						<a href="{% url 'members:member_list' %}" class="btn btn-info w-100">
+							<i class="fas fa-list me-2"></i>Alle Mitglieder
+						</a>
+					</div>
+					<!-- NEUE AUSWEIS-ERSTELLUNG AKTION -->
+					<div class="col-sm-6 mb-3">
+						<a href="{% url 'members:card_creation_list' %}" class="btn btn-success w-100">
+							<i class="fas fa-id-card me-2"></i>Ausweise erstellen
+						</a>
+					</div>
+					<div class="col-sm-6 mb-3">
+						<a href="{% url 'members:import_data' %}" class="btn btn-warning w-100">
+							<i class="fas fa-file-import me-2"></i>Daten importieren
+						</a>
+					</div>
+					<div class="col-sm-6 mb-3">
+						<a href="{% url 'members:export_data' %}?format=csv" class="btn btn-outline-primary w-100">
+							<i class="fas fa-file-export me-2"></i>CSV Export
+						</a>
+					</div>
+					<div class="col-sm-6 mb-3">
+						<a href="{% url 'members:export_data' %}?format=excel" class="btn btn-outline-success w-100">
+							<i class="fas fa-file-excel me-2"></i>Excel Export
+						</a>
+					</div>
+				</div>
+				
+				<!-- Card Creation Summary Widget -->
+				{% comment %}
+				Optional: Füge diese Sektion hinzu um Ausweis-Statistiken direkt im Dashboard zu zeigen
+				{% endcomment %}
+				<hr>
+				<div class="card-creation-summary">
+					<h6 class="text-muted mb-2">
+						<i class="fas fa-id-card me-2"></i>Ausweis-Status
+					</h6>
+					<div class="row text-center">
+						<div class="col-4">
+							<div class="p-2 border rounded bg-light">
+								<strong class="text-success d-block">
+									{{ stats.members_with_pictures|default:0 }}
+								</strong>
+								<small class="text-muted">Bereit</small>
+							</div>
+						</div>
+						<div class="col-4">
+							<div class="p-2 border rounded bg-light">
+								<strong class="text-info d-block">
+									{{ stats.pending_cards|default:0 }}
+								</strong>
+								<small class="text-muted">Ausstehend</small>
+							</div>
+						</div>
+						<div class="col-4">
+							<div class="p-2 border rounded bg-light">
+								<strong class="text-warning d-block">
+									{{ stats.expiring_soon }}
+								</strong>
+								<small class="text-muted">Bald ablaufend</small>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
 </div>
 
 <div class="row">

@@ -16,6 +16,7 @@ from io import BytesIO
 from PIL import Image
 from .models import Member
 from .forms import MemberForm, ImportForm
+from django.db import transaction
 
 @login_required
 def dashboard(request):
@@ -36,6 +37,30 @@ def dashboard(request):
         'expired_cards': Member.objects.filter(is_active=True, valid_until__lte=today).count(),
         'members_with_cards': Member.objects.exclude(card_number='').count(),
         'manual_validity_count': Member.objects.filter(manual_validity=True).count(),
+        
+        # NEUE AUSWEIS-STATISTIKEN
+        'members_with_pictures': Member.objects.filter(
+            is_active=True,
+            profile_picture__isnull=False
+        ).exclude(profile_picture__exact='').count(),
+        
+        'pending_cards': Member.objects.filter(
+            is_active=True,
+            profile_picture__isnull=False,
+            issued_date__isnull=True
+        ).exclude(profile_picture__exact='').count(),
+        
+        'cards_created_today': Member.objects.filter(
+            issued_date=today
+        ).count(),
+        
+        'cards_created_this_week': Member.objects.filter(
+            issued_date__gte=today - timedelta(days=7)
+        ).count(),
+        
+        'cards_created_this_month': Member.objects.filter(
+            issued_date__gte=today.replace(day=1)
+        ).count(),
     }
     
     # Mitarbeitertypen-Statistiken
@@ -831,3 +856,242 @@ def image_quality_check(request, pk):
     }
     
     return render(request, 'members/image_debug.html', context)
+
+@login_required
+def card_creation_list(request):
+    """
+    Zeigt alle Mitglieder an, die für die Ausweis-Erstellung bereit sind
+    (haben Profilbild und sind aktiv)
+    """
+    # Nur aktive Mitglieder mit Profilbild
+    eligible_members = Member.objects.filter(
+        is_active=True,
+        profile_picture__isnull=False
+    ).exclude(
+        profile_picture__exact=''
+    ).order_by('last_name', 'first_name')
+    
+    # Filter nach Mitarbeitertyp
+    member_type = request.GET.get('member_type')
+    if member_type:
+        eligible_members = eligible_members.filter(member_type=member_type)
+    
+    # Filter nach Status (bereits ausgestellte/nicht ausgestellte Ausweise)
+    status = request.GET.get('status')
+    today = date.today()
+    
+    if status == 'new':
+        # Noch nie einen Ausweis bekommen
+        eligible_members = eligible_members.filter(issued_date__isnull=True)
+    elif status == 'renewal':
+        # Bestehende Ausweise (für Verlängerung)
+        eligible_members = eligible_members.filter(issued_date__isnull=False)
+    elif status == 'expired':
+        # Abgelaufene Ausweise
+        eligible_members = eligible_members.filter(
+            issued_date__isnull=False,
+            valid_until__lte=today
+        )
+    elif status == 'expiring':
+        # Bald ablaufende Ausweise (nächste 30 Tage)
+        expiry_threshold = today + timedelta(days=30)
+        eligible_members = eligible_members.filter(
+            issued_date__isnull=False,
+            valid_until__gt=today,
+            valid_until__lte=expiry_threshold
+        )
+    
+    # Suche
+    search = request.GET.get('search')
+    if search:
+        eligible_members = eligible_members.filter(
+            models.Q(first_name__icontains=search) |
+            models.Q(last_name__icontains=search) |
+            models.Q(personnel_number__icontains=search) |
+            models.Q(card_number__icontains=search)
+        )
+    
+    # Statistiken für die Anzeige
+    stats = {
+        'total_eligible': Member.objects.filter(
+            is_active=True,
+            profile_picture__isnull=False
+        ).exclude(profile_picture__exact='').count(),
+        'new_cards': Member.objects.filter(
+            is_active=True,
+            profile_picture__isnull=False,
+            issued_date__isnull=True
+        ).exclude(profile_picture__exact='').count(),
+        'renewal_cards': Member.objects.filter(
+            is_active=True,
+            profile_picture__isnull=False,
+            issued_date__isnull=False
+        ).exclude(profile_picture__exact='').count(),
+        'expired_cards': Member.objects.filter(
+            is_active=True,
+            profile_picture__isnull=False,
+            valid_until__lte=today
+        ).exclude(profile_picture__exact='').count(),
+        'expiring_cards': Member.objects.filter(
+            is_active=True,
+            profile_picture__isnull=False,
+            valid_until__gt=today,
+            valid_until__lte=today + timedelta(days=30)
+        ).exclude(profile_picture__exact='').count(),
+    }
+    
+    context = {
+        'eligible_members': eligible_members,
+        'stats': stats,
+        'current_filters': {
+            'member_type': member_type or '',
+            'status': status or '',
+            'search': search or '',
+        }
+    }
+    
+    return render(request, 'members/card_creation_list.html', context)
+
+@login_required
+def card_creation_process(request):
+    """
+    Verarbeitet die ausgewählten Mitglieder für die Ausweis-Erstellung
+    """
+    if request.method != 'POST':
+        messages.error(request, 'Ungültige Anfrage.')
+        return redirect('members:card_creation_list')
+    
+    selected_member_ids = request.POST.getlist('selected_members[]')
+    
+    if not selected_member_ids:
+        messages.error(request, 'Bitte wählen Sie mindestens ein Mitglied aus.')
+        return redirect('members:card_creation_list')
+    
+    # Heute als Ausstellungsdatum
+    issue_date = date.today()
+    
+    # Mitglieder laden und validieren
+    members_to_update = Member.objects.filter(
+        id__in=selected_member_ids,
+        is_active=True,
+        profile_picture__isnull=False
+    ).exclude(profile_picture__exact='')
+    
+    if not members_to_update.exists():
+        messages.error(request, 'Keine gültigen Mitglieder für die Ausweis-Erstellung gefunden.')
+        return redirect('members:card_creation_list')
+    
+    # Batch-Update mit Transaktion
+    updated_count = 0
+    updated_members = []
+    
+    try:
+        with transaction.atomic():
+            for member in members_to_update:
+                # Ausstellungsdatum setzen
+                member.issued_date = issue_date
+                
+                # Gültigkeitsdatum automatisch berechnen (falls nicht manuell gesetzt)
+                if not member.manual_validity:
+                    if member.member_type in ['EXTERN', 'PRAKTIKANT']:
+                        # Externe und Praktikanten: 1 Jahr
+                        member.valid_until = issue_date + timedelta(days=365)
+                    else:
+                        # Reguläre Mitarbeiter: 5 Jahre
+                        member.valid_until = issue_date + timedelta(days=5*365)
+                
+                member.save()
+                updated_members.append(member)
+                updated_count += 1
+        
+        # Erfolgsmeldung
+        if updated_count == 1:
+            messages.success(
+                request, 
+                f'Ausweis für {updated_members[0].full_name} wurde erfolgreich erstellt.'
+            )
+        else:
+            messages.success(
+                request, 
+                f'{updated_count} Ausweise wurden erfolgreich erstellt.'
+            )
+        
+        # Zur Übersicht weiterleiten
+        return redirect('members:card_creation_summary', 
+                       member_ids=','.join(str(m.id) for m in updated_members))
+    
+    except Exception as e:
+        messages.error(request, f'Fehler bei der Ausweis-Erstellung: {str(e)}')
+        return redirect('members:card_creation_list')
+
+@login_required
+def card_creation_summary(request):
+    """
+    Zeigt eine Zusammenfassung der erstellten Ausweise
+    """
+    member_ids = request.GET.get('member_ids', '')
+    
+    if not member_ids:
+        messages.error(request, 'Keine Mitglieder-IDs gefunden.')
+        return redirect('members:card_creation_list')
+    
+    try:
+        member_id_list = [int(id.strip()) for id in member_ids.split(',') if id.strip()]
+        created_members = Member.objects.filter(id__in=member_id_list).order_by('last_name', 'first_name')
+        
+        if not created_members.exists():
+            messages.error(request, 'Keine Mitglieder gefunden.')
+            return redirect('members:card_creation_list')
+        
+        context = {
+            'created_members': created_members,
+            'creation_date': timezone.now().date(),
+            'total_count': created_members.count(),
+        }
+        
+        return render(request, 'members/card_creation_summary.html', context)
+        
+    except ValueError:
+        messages.error(request, 'Ungültige Mitglieder-IDs.')
+        return redirect('members:card_creation_list')
+
+@login_required
+def check_member_eligibility(request, pk):
+    """
+    AJAX-Endpoint zur Überprüfung der Berechtigung eines Mitglieds für Ausweis-Erstellung
+    """
+    try:
+        member = get_object_or_404(Member, pk=pk)
+        
+        # Berechtigung prüfen
+        is_eligible = (
+            member.is_active and 
+            member.profile_picture and 
+            bool(member.profile_picture.name)
+        )
+        
+        # Grund für Nicht-Berechtigung
+        issues = []
+        if not member.is_active:
+            issues.append('Mitglied ist inaktiv')
+        if not member.profile_picture or not member.profile_picture.name:
+            issues.append('Kein Profilbild vorhanden')
+        
+        # Bildqualität prüfen (optional)
+        image_info = member.get_image_info() if member.profile_picture else None
+        if image_info and 'error' in image_info:
+            issues.append(f'Bildproblem: {image_info["error"]}')
+        
+        return JsonResponse({
+            'eligible': is_eligible,
+            'issues': issues,
+            'member_name': member.full_name,
+            'card_number': member.card_number,
+            'member_type': member.get_member_type_display(),
+            'has_existing_card': bool(member.issued_date),
+            'existing_valid_until': member.valid_until.isoformat() if member.valid_until else None,
+            'image_info': image_info
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)

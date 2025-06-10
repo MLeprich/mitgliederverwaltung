@@ -1,0 +1,366 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Ausweise erstellt - Mitgliederverwaltung{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="text-center mb-4">
+            <div class="success-animation mb-3">
+                <i class="fas fa-check-circle fa-5x text-success"></i>
+            </div>
+            <h1 class="h2 text-success">Ausweise erfolgreich erstellt!</h1>
+            <p class="lead text-muted">
+                {{ total_count }} {% if total_count == 1 %}Ausweis wurde{% else %}Ausweise wurden{% endif %} 
+                am {{ creation_date|date:"d.m.Y" }} erstellt.
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Zusammenfassung -->
+<div class="row justify-content-center mb-4">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-clipboard-list me-2"></i>
+                    Erstellte Ausweise
+                </h4>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 80px;">Bild</th>
+                                <th>Name</th>
+                                <th>Typ</th>
+                                <th>Ausweisnummer</th>
+                                <th>Ausgestellt am</th>
+                                <th>Gültig bis</th>
+                                <th>Gültigkeitsdauer</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for member in created_members %}
+                            <tr>
+                                <td class="text-center">
+                                    <div class="position-relative">
+                                        <img src="{{ member.profile_picture.url }}" 
+                                             class="rounded border" 
+                                             style="width: 50px; height: 60px; object-fit: cover;"
+                                             alt="{{ member.full_name }}">
+                                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success">
+                                            <i class="fas fa-check fa-xs"></i>
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div>
+                                        <strong>{{ member.full_name }}</strong><br>
+                                        <small class="text-muted">
+                                            {{ member.age }} Jahre
+                                            {% if member.personnel_number %}
+                                                • {{ member.personnel_number }}
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark">
+                                        {{ member.get_member_type_display_with_icon }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <code class="bg-light px-2 py-1 rounded">{{ member.card_number }}</code>
+                                </td>
+                                <td>
+                                    <strong>{{ member.issued_date|date:"d.m.Y" }}</strong><br>
+                                    <small class="text-success">
+                                        <i class="fas fa-clock me-1"></i>Heute erstellt
+                                    </small>
+                                </td>
+                                <td>
+                                    <strong>{{ member.valid_until|date:"d.m.Y" }}</strong><br>
+                                    <small class="text-muted">
+                                        {% if member.manual_validity %}
+                                            <i class="fas fa-hand-paper text-info me-1"></i>Manuell
+                                        {% else %}
+                                            <i class="fas fa-cog text-secondary me-1"></i>Automatisch
+                                        {% endif %}
+                                    </small>
+                                </td>
+                                <td>
+                                    {% with days_valid=member.valid_until|timeuntil %}
+                                    <span class="badge bg-success">
+                                        {% if member.member_type in 'EXTERN,PRAKTIKANT' %}
+                                            1 Jahr
+                                        {% else %}
+                                            5 Jahre
+                                        {% endif %}
+                                    </span>
+                                    <br>
+                                    <small class="text-muted">{{ days_valid }}</small>
+                                    {% endwith %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card-footer bg-light">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Die Ausweise sind ab sofort gültig und können gedruckt werden.
+                        </small>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <small class="text-muted">
+                            Erstellt am: {{ creation_date|date:"d.m.Y H:i" }}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Aktionen -->
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-tasks me-2"></i>Nächste Schritte
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="d-grid">
+                            <button class="btn btn-primary" onclick="printCards()">
+                                <i class="fas fa-print me-2"></i>Ausweise drucken
+                            </button>
+                        </div>
+                        <small class="text-muted mt-1 d-block">
+                            Alle erstellten Ausweise drucken
+                        </small>
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <div class="d-grid">
+                            <a href="{% url 'members:export_data' %}?format=csv&member_ids={{ created_members|join:',' by:'id' }}" 
+                               class="btn btn-success">
+                                <i class="fas fa-file-csv me-2"></i>Liste exportieren
+                            </a>
+                        </div>
+                        <small class="text-muted mt-1 d-block">
+                            Erstellte Ausweise als CSV
+                        </small>
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <div class="d-grid">
+                            <button class="btn btn-info" onclick="generateReport()">
+                                <i class="fas fa-file-pdf me-2"></i>Bericht erstellen
+                            </button>
+                        </div>
+                        <small class="text-muted mt-1 d-block">
+                            PDF-Bericht der Erstellung
+                        </small>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <a href="{% url 'members:card_creation_list' %}" class="btn btn-outline-primary w-100">
+                            <i class="fas fa-plus me-2"></i>Weitere Ausweise erstellen
+                        </a>
+                    </div>
+                    
+                    <div class="col-md-6 mb-2">
+                        <a href="{% url 'members:dashboard' %}" class="btn btn-outline-secondary w-100">
+                            <i class="fas fa-home me-2"></i>Zurück zum Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistik Summary -->
+<div class="row justify-content-center mt-4">
+    <div class="col-lg-8">
+        <div class="alert alert-success">
+            <div class="row text-center">
+                <div class="col-md-3">
+                    <h4 class="text-success mb-1">{{ total_count }}</h4>
+                    <small>Ausweise erstellt</small>
+                </div>
+                <div class="col-md-3">
+                    <h4 class="text-success mb-1">{{ creation_date|date:"d.m.Y" }}</h4>
+                    <small>Ausstellungsdatum</small>
+                </div>
+                <div class="col-md-3">
+                    <h4 class="text-success mb-1">
+                        {% for member in created_members %}
+                            {% if forloop.first %}
+                                {{ member.valid_until|date:"d.m.Y" }}
+                            {% endif %}
+                        {% endfor %}
+                    </h4>
+                    <small>Erste Gültigkeit bis</small>
+                </div>
+                <div class="col-md-3">
+                    <h4 class="text-success mb-1">100%</h4>
+                    <small>Erfolgreich</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.success-animation {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: none;
+}
+
+.card-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+    background-color: #f8f9fa !important;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+code {
+    font-size: 0.875rem;
+}
+
+.position-relative .badge {
+    font-size: 0.5rem;
+    padding: 0.2rem 0.3rem;
+}
+
+.btn {
+    border-radius: 0.5rem;
+    font-weight: 500;
+}
+
+.alert-success {
+    border-left: 4px solid #28a745;
+    background: linear-gradient(90deg, rgba(40, 167, 69, 0.1), rgba(40, 167, 69, 0.05));
+}
+
+.card-footer {
+    border-top: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.text-success {
+    color: #28a745 !important;
+}
+
+/* Animation für den Check-Icon */
+.fa-check-circle {
+    animation: bounceIn 0.8s ease-out;
+}
+
+@keyframes bounceIn {
+    0% {
+        transform: scale(0.3);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    70% {
+        transform: scale(0.9);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function printCards() {
+    // Hier wird später die Integration mit Cardpresso oder einem anderen Drucksystem implementiert
+    alert('Druckfunktion wird mit Cardpresso-Integration implementiert.\n\nDie Ausweise sind bereit zum Druck.');
+}
+
+function generateReport() {
+    // PDF-Bericht generieren
+    alert('PDF-Berichtfunktion wird in einer zukünftigen Version implementiert.');
+}
+
+// Erfolgs-Sound abspielen (optional)
+document.addEventListener('DOMContentLoaded', function() {
+    // Subtle success animation
+    const successIcon = document.querySelector('.fa-check-circle');
+    if (successIcon) {
+        setTimeout(() => {
+            successIcon.style.color = '#28a745';
+        }, 500);
+    }
+    
+    // Auto-scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // P für Print
+    if (e.key === 'p' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        printCards();
+    }
+    
+    // Escape für zurück zum Dashboard
+    if (e.key === 'Escape') {
+        window.location.href = "{% url 'members:dashboard' %}";
+    }
+});
+</script>
+{% endblock %}

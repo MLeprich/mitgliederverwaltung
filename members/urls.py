@@ -24,4 +24,10 @@ urlpatterns = [
     path('import/', views.import_data, name='import_data'),
     path('export/', views.export_data, name='export_data'),
     path('download-template/', views.download_template, name='download_template'),
+    
+    # Ausweis-Erstellung
+    path('cards/create/', views.card_creation_list, name='card_creation_list'),
+    path('cards/process/', views.card_creation_process, name='card_creation_process'),
+    path('cards/summary/', views.card_creation_summary, name='card_creation_summary'),
+    path('cards/check/<int:pk>/', views.check_member_eligibility, name='check_member_eligibility'),
 ]

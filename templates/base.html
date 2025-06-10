@@ -22,46 +22,52 @@
             </button>
             
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    {% if user.is_authenticated %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'members:dashboard' %}">
-                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'members:member_list' %}">
-                            <i class="fas fa-users me-1"></i>Mitglieder
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'members:member_add' %}">
-                            <i class="fas fa-user-plus me-1"></i>Hinzufügen
-                        </a>
-                    </li>
+				<ul class="navbar-nav me-auto">
+					{% if user.is_authenticated %}
 					<li class="nav-item">
-                        <a class="nav-link" href="{% url 'members:import_data' %}">
-                            <i class="fas fa-file-import me-1"></i>Import
-                        </a>
-                    </li>
-                    {% endif %}
-                </ul>
-                
-                <ul class="navbar-nav">
-                    {% if user.is_authenticated %}
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user me-1"></i>{{ user.username }}
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="/admin/"><i class="fas fa-cog me-2"></i>Admin</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'logout' %}"><i class="fas fa-sign-out-alt me-2"></i>Abmelden</a></li>
-                        </ul>
-                    </li>
-                    {% endif %}
-                </ul>
-            </div>
+						<a class="nav-link" href="{% url 'members:dashboard' %}">
+							<i class="fas fa-tachometer-alt me-1"></i>Dashboard
+						</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="{% url 'members:member_list' %}">
+							<i class="fas fa-users me-1"></i>Mitglieder
+						</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="{% url 'members:member_add' %}">
+							<i class="fas fa-user-plus me-1"></i>Hinzufügen
+						</a>
+					</li>
+					<!-- NEUE AUSWEIS-ERSTELLUNG -->
+					<li class="nav-item">
+						<a class="nav-link" href="{% url 'members:card_creation_list' %}">
+							<i class="fas fa-id-card me-1"></i>Ausweise erstellen
+						</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="{% url 'members:import_data' %}">
+							<i class="fas fa-file-import me-1"></i>Import
+						</a>
+					</li>
+					{% endif %}
+				</ul>
+				
+				<ul class="navbar-nav">
+					{% if user.is_authenticated %}
+					<li class="nav-item dropdown">
+						<a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+							<i class="fas fa-user me-1"></i>{{ user.username }}
+						</a>
+						<ul class="dropdown-menu">
+							<li><a class="dropdown-item" href="/admin/"><i class="fas fa-cog me-2"></i>Admin</a></li>
+							<li><hr class="dropdown-divider"></li>
+							<li><a class="dropdown-item" href="{% url 'logout' %}"><i class="fas fa-sign-out-alt me-2"></i>Abmelden</a></li>
+						</ul>
+					</li>
+					{% endif %}
+				</ul>
+			</div>
         </div>
     </nav>
 
