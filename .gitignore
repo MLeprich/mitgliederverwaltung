@@ -1,338 +1,61 @@
-# Django Mitgliederverwaltung .gitignore
+# Django
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+db.sqlite3
+db.sqlite3-journal
 
-# ===========================================
-# Django Specifics
-# ===========================================
+# Django Settings
+local_settings.py
+settings_local.py
+
+# Media files (Uploads)
+media/
+
+# Static files (collected)
+staticfiles/
+static/
 
 # Environment variables
 .env
 .env.local
 .env.production
 
-# Django secret key and settings
-local_settings.py
-settings_local.py
-
-# Database
-*.sqlite3
-*.sqlite3-journal
-db.sqlite3*
-
-# Static files (collected by collectstatic)
-/staticfiles/
-/static_collected/
-
-# Media files (user uploads - SENSITIVE!)
-/media/
-!/media/.gitkeep
-
-# Django migrations (optional - remove if you want to track them)
-# */migrations/*.py
-# !*/migrations/__init__.py
-
-# Django cache
-*.pyc
-__pycache__/
-*.pyo
-*.pyd
-
-# ===========================================
-# Python
-# ===========================================
-
-# Virtual environments
-venv/
-env/
-ENV/
-.venv/
-.ENV/
-
-# Python cache
-*.py[cod]
-*$py.class
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# PyInstaller
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
-.pytest_cache/
-
-# ===========================================
-# IDE & Editor files
-# ===========================================
-
-# VS Code
+# IDEs
 .vscode/
-*.code-workspace
-
-# PyCharm
 .idea/
-*.iws
-*.iml
-*.ipr
-
-# Sublime Text
-*.sublime-project
-*.sublime-workspace
-
-# Vim
 *.swp
 *.swo
 *~
 
-# Emacs
-*~
-\#*\#
-/.emacs.desktop
-/.emacs.desktop.lock
-*.elc
-auto-save-list
-tramp
-.\#*
-
-# ===========================================
-# System files
-# ===========================================
-
-# macOS
+# OS
 .DS_Store
-.AppleDouble
-.LSOverride
-Icon?
+.DS_Store?
 ._*
-.DocumentRevisions-V100
-.fseventsd
 .Spotlight-V100
-.TemporaryItems
 .Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
-
-# Windows
-Thumbs.db
-Thumbs.db:encryptable
 ehthumbs.db
-ehthumbs_vista.db
-*.stackdump
-[Dd]esktop.ini
-$RECYCLE.BIN/
-*.cab
-*.msi
-*.msix
-*.msm
-*.msp
-*.lnk
+Thumbs.db
 
-# Linux
-*~
-
-# ===========================================
-# Raspberry Pi / Server Specifics
-# ===========================================
-
-# SSL certificates (NEVER commit these!)
-*.crt
-*.key
-*.pem
-*.p12
-*.pfx
-/ssl/
-/certs/
-
-# Nginx configuration with sensitive data
-nginx_sites_available/
-nginx.conf
-
-# Systemd service files (may contain paths)
-*.service
-
-# Log files
+# Logs
 *.log
 logs/
-/var/log/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Node modules (falls du Frontend Tools verwendest)
+node_modules/
 
 # Backup files
-*.backup
 *.bak
-*.old
-backup_*
-*_backup
+*.backup
 
-# ===========================================
-# Development & Temporary files
-# ===========================================
-
-# Temporary scripts and test files
-test_*.py
-temp_*
-tmp_*
-*_test.*
-*_temp.*
-
-# Script backups
-*.sh.backup
-*.sh.old
-*_old.*
-*_backup.*
-
-# Development databases
-test.db
-dev.db
-
-# Documentation drafts
-draft_*
-TODO.md
-NOTES.md
-
-# ===========================================
-# Production & Deployment
-# ===========================================
-
-# Production settings
-production_settings.py
-prod_settings.py
-
-# Docker (if used later)
-.dockerignore
-docker-compose.override.yml
-
-# Deployment scripts with sensitive data
-deploy.sh
-deploy_prod.sh
-
-# Process IDs
-*.pid
-
-# ===========================================
-# Sensitive Data & Security
-# ===========================================
-
-# Any file containing passwords, keys, tokens
-*password*
-*secret*
-*token*
-*api_key*
-*private*
-
-# Configuration files with sensitive data
-config.ini
-config.json
-secrets.json
-
-# Database exports (may contain personal data)
-*.sql
-*.dump
-export_*
-
-# Member photos and personal data
-profile_pics/
-member_photos/
-uploads/
-
-# ===========================================
-# Build & Deployment Artifacts
-# ===========================================
-
-# Compiled files
-*.com
-*.class
-*.dll
-*.exe
-*.o
-*.so
-
-# Compressed files
-*.7z
-*.dmg
-*.gz
-*.iso
-*.jar
-*.rar
-*.tar
-*.zip
-
-# ===========================================
-# Additional ignores for this project
-# ===========================================
-
-# Custom ignore patterns for Mitgliederverwaltung
-
-# Old versions and backups
-templates/**/*.old
-templates/**/*.backup
-members/**/*.old
-static/**/*.old
-*.html.old
-*.py.old
-*.js.old
-*.css.old
-
-# Debug and test files
-debug_*
-test_upload.*
-sample_*
-
-# Import/export test files
-import_test.csv
-export_test.*
-test_members.*
-
-# Webcam test images
-webcam_test.*
-camera_test.*
-
-# Local development overrides
-local_*
-dev_*
-
-# Keep empty directories with .gitkeep
-!.gitkeep
-
-# Shell scripts (with exception for https_setup.sh)
-*.sh
-!https_setup.sh
-!installation_script/https_setup.sh
-
-# Script backups
-*.sh.backup
-*.sh.old
-*_old.*
-*_backup.*
-
-# SBOM files (but keep the directory)
-# Remove this if you want to track SBOM files
-# sbom/*.json
+# Cache
+.cache/

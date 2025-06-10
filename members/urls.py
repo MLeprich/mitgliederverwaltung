@@ -1,4 +1,4 @@
-# members/urls.py
+# members/urls.py - KOMPLETTE Datei
 from django.urls import path
 from . import views
 
@@ -25,7 +25,7 @@ urlpatterns = [
     path('export/', views.export_data, name='export_data'),
     path('download-template/', views.download_template, name='download_template'),
     
-    # Ausweis-Erstellung
+    # ✨ NEUE AUSWEIS-ERSTELLUNG URLS
     path('cards/create/', views.card_creation_list, name='card_creation_list'),
     path('cards/process/', views.card_creation_process, name='card_creation_process'),
     path('cards/summary/', views.card_creation_summary, name='card_creation_summary'),

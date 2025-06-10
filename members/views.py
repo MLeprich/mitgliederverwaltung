@@ -18,6 +18,7 @@ from .models import Member
 from .forms import MemberForm, ImportForm
 from django.db import transaction
 
+
 @login_required
 def dashboard(request):
     today = date.today()
@@ -905,10 +906,10 @@ def card_creation_list(request):
     search = request.GET.get('search')
     if search:
         eligible_members = eligible_members.filter(
-            models.Q(first_name__icontains=search) |
-            models.Q(last_name__icontains=search) |
-            models.Q(personnel_number__icontains=search) |
-            models.Q(card_number__icontains=search)
+            Q(first_name__icontains=search) |
+            Q(last_name__icontains=search) |
+            Q(personnel_number__icontains=search) |
+            Q(card_number__icontains=search)
         )
     
     # Statistiken für die Anzeige
@@ -1095,3 +1096,97 @@ def check_member_eligibility(request, pk):
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
+
+# ERWEITERE AUCH DEINE BESTEHENDE dashboard VIEW:
+@login_required
+def dashboard(request):
+    today = date.today()
+    expiry_threshold = today + timedelta(days=30)
+    
+    # Erweiterte Statistiken
+    stats = {
+        'total_members': Member.objects.count(),
+        'active_members': Member.objects.filter(is_active=True).count(),
+        'inactive_members': Member.objects.filter(is_active=False).count(),
+        'valid_cards': Member.objects.filter(is_active=True, valid_until__gt=today).count(),
+        'expiring_soon': Member.objects.filter(
+            is_active=True, 
+            valid_until__gt=today,
+            valid_until__lte=expiry_threshold
+        ).count(),
+        'expired_cards': Member.objects.filter(is_active=True, valid_until__lte=today).count(),
+        'members_with_cards': Member.objects.exclude(card_number='').count(),
+        'manual_validity_count': Member.objects.filter(manual_validity=True).count(),
+        
+        # ✨ NEUE AUSWEIS-STATISTIKEN
+        'members_with_pictures': Member.objects.filter(
+            is_active=True,
+            profile_picture__isnull=False
+        ).exclude(profile_picture__exact='').count(),
+        
+        'pending_cards': Member.objects.filter(
+            is_active=True,
+            profile_picture__isnull=False,
+            issued_date__isnull=True
+        ).exclude(profile_picture__exact='').count(),
+    }
+    
+    # Rest deiner bestehenden Dashboard-Logik...
+    # (member_types_data, recent_members, expiring_members, etc.)
+    
+    # Mitarbeitertypen-Statistiken
+    member_types_data = Member.objects.values('member_type').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    # Icons für Mitarbeitertypen
+    type_icons = {
+        'BF': '🚒',
+        'FF': '🔥',
+        'JF': '👦',
+        'STADT': '🏛️',
+        'EXTERN': '🏢',
+        'PRAKTIKANT': '🎓',
+    }
+    
+    type_names = {
+        'BF': 'Berufsfeuerwehr',
+        'FF': 'Freiwillige Feuerwehr',
+        'JF': 'Jugendfeuerwehr',
+        'STADT': 'Stadt',
+        'EXTERN': 'Extern',
+        'PRAKTIKANT': 'Praktikant',
+    }
+    
+    total_active = stats['active_members']
+    member_types_stats = []
+    
+    for type_data in member_types_data:
+        member_type = type_data['member_type']
+        count = type_data['count']
+        percentage = round((count / total_active * 100), 1) if total_active > 0 else 0
+        
+        member_types_stats.append({
+            'type': member_type,
+            'display_name': type_names.get(member_type, member_type),
+            'icon': type_icons.get(member_type, '👤'),
+            'count': count,
+            'percentage': percentage
+        })
+    
+    # Neueste Mitglieder
+    recent_members = Member.objects.filter(is_active=True).order_by('-created_at')[:5]
+    
+    # Ablaufende Ausweise
+    expiring_members = Member.objects.filter(
+        is_active=True,
+        valid_until__lte=expiry_threshold
+    ).order_by('valid_until')[:10]
+    
+    context = {
+        'stats': stats,
+        'member_types_stats': member_types_stats,
+        'recent_members': recent_members,
+        'expiring_members': expiring_members,
+    }
+    return render(request, 'dashboard.html', context)
