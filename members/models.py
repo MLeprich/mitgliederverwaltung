@@ -2,6 +2,7 @@
 from django.db import models
 from django.core.validators import FileExtensionValidator
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 from datetime import date, timedelta
 import os
 import random
@@ -288,11 +289,11 @@ class Member(models.Model):
         except Exception as e:
             return {'error': str(e)}
 
-    # Zusätzliche Validierung im MemberForm
+    # Validierung des Profilbilds auf Model-Ebene
     def clean_profile_picture(self):
-        """Erweiterte Validierung für Profilbilder"""
-        picture = self.cleaned_data.get('profile_picture')
-        
+        """Erweiterte Validierung für Profilbilder auf Model-Ebene"""
+        picture = self.profile_picture
+
         if picture:
             # Dateigröße prüfen (max 10MB)
             if picture.size > 10 * 1024 * 1024:
