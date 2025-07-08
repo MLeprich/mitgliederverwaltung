@@ -149,7 +149,7 @@ class MemberForm(forms.ModelForm):
         return valid_until
     
     def clean_profile_picture(self):
-        """Erweiterte Validierung für Profilbilder"""
+        """Erweiterte Validierung für Profilbilder mit MPO-Unterstützung"""
         picture = self.cleaned_data.get('profile_picture')
         
         if picture:
@@ -165,30 +165,84 @@ class MemberForm(forms.ModelForm):
                 # Bild öffnen um Format zu validieren
                 image = Image.open(io.BytesIO(picture.read()))
                 
-                # Unterstützte Formate
-                supported_formats = ['JPEG', 'PNG', 'TIFF', 'BMP']
-                if image.format not in supported_formats:
-                    raise ValidationError(f"Unsupported format. Erlaubt: {', '.join(supported_formats)}")
+                # ✅ FORMAT-HANDLING: Verschiedene Formate behandeln
+                detected_format = image.format.upper() if image.format else 'UNKNOWN'
                 
-                # Mindestauflösung prüfen
+                # Unterstützte Basis-Formate
+                supported_base_formats = ['JPEG', 'JPG', 'PNG', 'TIFF', 'BMP']
+                
+                # ✅ MPO-HANDLING: Sony/Canon Multi-Picture Object Format
+                if detected_format == 'MPO':
+                    print(f"🔄 MPO-Datei erkannt, konvertiere zu JPEG...")
+                    
+                    # MPO ist ein JPEG-Container - ersten Frame extrahieren
+                    try:
+                        # Ersten Frame (Hauptbild) extrahieren
+                        image.seek(0)  # Zum ersten Frame
+                        
+                        # In RGB konvertieren (falls nötig)
+                        if image.mode in ('RGBA', 'P', 'LA'):
+                            background = Image.new('RGB', image.size, (255, 255, 255))
+                            if image.mode == 'P':
+                                image = image.convert('RGBA')
+                            background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+                            image = background
+                        elif image.mode != 'RGB':
+                            image = image.convert('RGB')
+                        
+                        # Als JPEG in BytesIO speichern
+                        converted_image = io.BytesIO()
+                        image.save(converted_image, format='JPEG', quality=95, optimize=True)
+                        converted_image.seek(0)
+                        
+                        # Original-Picture durch konvertiertes ersetzen
+                        picture.file = converted_image
+                        picture.name = picture.name.rsplit('.', 1)[0] + '.jpg'  # Dateiname anpassen
+                        
+                        print(f"✅ MPO erfolgreich zu JPEG konvertiert")
+                        
+                        # Format für weitere Prüfungen setzen
+                        detected_format = 'JPEG'
+                        
+                    except Exception as mpo_error:
+                        raise ValidationError(f"MPO-Konvertierung fehlgeschlagen: {str(mpo_error)}")
+                
+                # Standard-Format-Validierung
+                if detected_format in ['JPEG', 'JPG']:
+                    # JPEG/JPG sind OK
+                    pass
+                elif detected_format not in supported_base_formats:
+                    # Liste der unterstützten Formate für Benutzer
+                    supported_display = "JPEG/JPG, PNG, TIFF, BMP, MPO (Sony/Canon)"
+                    raise ValidationError(
+                        f"Bildformat '{detected_format}' wird nicht unterstützt. "
+                        f"Erlaubte Formate: {supported_display}"
+                    )
+                
+		if detected_format == 'JPEG' and picture.name.endswith('.jpg'):
+                    # Nach MPO-Konvertierung: Bild neu laden
+                    picture.file.seek(0)
+                    image = Image.open(picture.file)
+                
+                # ✅ NUR Mindestgröße prüfen (Maximum entfernt, da automatisch verkleinert wird)
                 min_width, min_height = 200, 300  
                 if image.width < min_width or image.height < min_height:
                     raise ValidationError(
                         f"Bild zu klein. Minimum: {min_width}x{min_height}px "
-                        f"(Aktuell: {image.width}x{image.height}px)"
+                        f"(Aktuell: {image.width}x{image.height}px). "
+                        f"Das Bild wird automatisch auf 267x400px für den Dienstausweis angepasst."
                     )
                 
-                # Maximalgröße prüfen
-                max_width, max_height = 4000, 6000
-                if image.width > max_width or image.height > max_height:
-                    raise ValidationError(
-                        f"Bild zu groß. Maximum: {max_width}x{max_height}px "
-                        f"(Aktuell: {image.width}x{image.height}px)"
-                    )
+                # ✅ OPTIONAL: Warnung bei sehr großen Bildern (aber nicht blockieren)
+                if image.width > 4000 or image.height > 4000:
+                    print(f"ℹ️ Großes Bild erkannt: {image.width}x{image.height}px - wird automatisch optimiert")
                 
                 # Cursor zurücksetzen für weitere Verarbeitung
-                picture.seek(0)
+                picture.file.seek(0)
                 
+            except ValidationError:
+                # ValidationError weiterwerfen
+                raise
             except Exception as e:
                 raise ValidationError(f"Ungültige Bilddatei: {str(e)}")
         
