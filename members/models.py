@@ -151,110 +151,142 @@ class Member(models.Model):
     # Verbesserte resize_image Methode für members/models.py
 
     def resize_image(self):
-        """
-        Passt Profilbild für Dienstausweis-Druck an:
-        - Exakte Größe: 267x400 Pixel (Passbild-Format)
-        - 300 DPI für Druckqualität
-        - Optimierte Kompression für Druck
-        - EXIF-Orientierung korrigieren
-        """
-        try:
-            from PIL import Image, ExifTags
-            import os
+    """
+    Passt Profilbild für Dienstausweis-Druck an:
+    - Exakte Größe: 267x400 Pixel (Passbild-Format im Hochformat)
+    - 300 DPI für Druckqualität
+    - Optimierte Kompression für Druck
+    - EXIF-Orientierung KORREKT handhaben
+    """
+    try:
+        from PIL import Image, ExifTags
+        import os
+        
+        if not self.profile_picture or not os.path.exists(self.profile_picture.path):
+            return
             
-            if not self.profile_picture or not os.path.exists(self.profile_picture.path):
-                return
-                
-            # Bild öffnen
-            with Image.open(self.profile_picture.path) as img:
-                
-                # EXIF-Orientierung korrigieren
-                try:
-                    # Orientierung aus EXIF-Daten lesen
-                    exif_dict = img._getexif()
-                    if exif_dict is not None:
-                        for tag, value in exif_dict.items():
-                            if tag in ExifTags.TAGS and ExifTags.TAGS[tag] == 'Orientation':
-                                if value == 3:
-                                    img = img.rotate(180, expand=True)
-                                elif value == 6:
-                                    img = img.rotate(270, expand=True)  
-                                elif value == 8:
-                                    img = img.rotate(90, expand=True)
-                                break
-                except (AttributeError, KeyError, TypeError, OSError):
-                    # Keine EXIF-Daten oder Fehler - ignorieren
-                    pass
-                
-                # Zielgröße für Dienstausweis (Passbild-Format)
-                target_width = 267
-                target_height = 400
-                target_size = (target_width, target_height)
-                
-                # Original-Abmessungen
+        # Bild öffnen
+        with Image.open(self.profile_picture.path) as img:
+            
+            # ✅ KORRIGIERTE EXIF-Orientierung - NUR bei falscher Orientierung rotieren
+            try:
+                # EXIF-Daten lesen
+                exif_dict = img._getexif()
+                if exif_dict is not None:
+                    for tag, value in exif_dict.items():
+                        if tag in ExifTags.TAGS and ExifTags.TAGS[tag] == 'Orientation':
+                            print(f"🔍 EXIF-Orientierung gefunden: {value}")
+                            
+                            # NUR rotieren wenn das Bild wirklich falsch orientiert ist
+                            if value == 3:  # 180° gedreht
+                                img = img.rotate(180, expand=True)
+                                print("🔄 Bild um 180° gedreht")
+                            elif value == 6:  # 90° im Uhrzeigersinn gedreht (von Kamera falsch gespeichert)
+                                img = img.rotate(270, expand=True)  # Gegen den Uhrzeigersinn zurückdrehen
+                                print("🔄 Bild um 270° gedreht (EXIF-Korrektur)")
+                            elif value == 8:  # 90° gegen Uhrzeigersinn gedreht (von Kamera falsch gespeichert)
+                                img = img.rotate(90, expand=True)   # Im Uhrzeigersinn zurückdrehen
+                                print("🔄 Bild um 90° gedreht (EXIF-Korrektur)")
+                            elif value == 1:  # Normale Orientierung
+                                print("✅ Bild hat bereits korrekte Orientierung")
+                            else:
+                                print(f"ℹ️ Unbekannte EXIF-Orientierung: {value} - keine Rotation")
+                            break
+                else:
+                    print("ℹ️ Keine EXIF-Orientierungsdaten gefunden")
+                    
+            except (AttributeError, KeyError, TypeError, OSError) as e:
+                print(f"ℹ️ EXIF-Verarbeitung übersprungen: {e}")
+                pass
+            
+            # Zielgröße für Dienstausweis (HOCHFORMAT Passbild)
+            target_width = 267   # Breite
+            target_height = 400  # Höhe (länger = Hochformat)
+            target_size = (target_width, target_height)
+            
+            print(f"📐 Originalgröße: {img.size[0]}x{img.size[1]}px")
+            print(f"🎯 Zielgröße: {target_width}x{target_height}px (Hochformat)")
+            
+            # Original-Abmessungen nach EXIF-Korrektur
+            original_width, original_height = img.size
+            
+            # ✅ PRÜFUNG: Ist das Bild im Querformat? Dann automatisch um 90° drehen
+            if original_width > original_height:
+                print("🔄 Querformat erkannt - drehe zu Hochformat")
+                img = img.rotate(90, expand=True)
                 original_width, original_height = img.size
-                
-                # Seitenverhältnis berechnen
-                original_ratio = original_width / original_height
-                target_ratio = target_width / target_height
-                
-                # Bild zuschneiden um das richtige Seitenverhältnis zu erhalten
-                if original_ratio > target_ratio:
-                    # Bild ist zu breit - an der Seite beschneiden
-                    new_width = int(original_height * target_ratio)
-                    left = (original_width - new_width) // 2
-                    right = left + new_width
-                    img = img.crop((left, 0, right, original_height))
-                elif original_ratio < target_ratio:
-                    # Bild ist zu hoch - oben/unten beschneiden  
-                    new_height = int(original_width / target_ratio)
-                    top = (original_height - new_height) // 2
-                    bottom = top + new_height
-                    img = img.crop((0, top, original_width, bottom))
-                
-                # Auf finale Größe skalieren mit hochwertiger Interpolation
-                img = img.resize(target_size, Image.Resampling.LANCZOS)
-                
-                # In RGB konvertieren falls nötig (für JPEG)
-                if img.mode in ('RGBA', 'P', 'LA'):
-                    # Weißer Hintergrund für Transparenz
-                    background = Image.new('RGB', img.size, (255, 255, 255))
-                    if img.mode == 'P':
-                        img = img.convert('RGBA')
-                    background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
-                    img = background
-                elif img.mode != 'RGB':
-                    img = img.convert('RGB')
-                
-                # DPI für Druckqualität setzen (300 DPI)
-                dpi = (300, 300)
-                
-                # Optimierte JPEG-Einstellungen für Druck
-                save_kwargs = {
-                    'format': 'JPEG',
-                    'quality': 95,  # Höhere Qualität für Druck
-                    'optimize': True,
-                    'dpi': dpi,
-                    'progressive': True,  # Progressive JPEG für bessere Kompression
-                    'subsampling': 0,  # Keine Farbunterabtastung für beste Qualität
-                }
-                
-                # Bild speichern
-                img.save(self.profile_picture.path, **save_kwargs)
-                
-                # Metadaten prüfen (Debug)
-                print(f"Bild verarbeitet für {self.full_name}:")
-                print(f"- Größe: {target_width}x{target_height}px")
-                print(f"- DPI: {dpi[0]}")
-                print(f"- Format: JPEG")
-                print(f"- Qualität: 95%")
-                
-        except Exception as e:
-            print(f"Fehler bei Bildverarbeitung für {self}: {str(e)}")
-            # Log-Eintrag für Debugging
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Bildverarbeitung fehlgeschlagen für Mitglied {self.pk}: {str(e)}")
+                print(f"📐 Nach Hochformat-Korrektur: {original_width}x{original_height}px")
+            
+            # Seitenverhältnis berechnen
+            original_ratio = original_width / original_height
+            target_ratio = target_width / target_height
+            
+            print(f"📊 Original-Verhältnis: {original_ratio:.3f}")
+            print(f"📊 Ziel-Verhältnis: {target_ratio:.3f}")
+            
+            # Bild zuschneiden um das richtige Seitenverhältnis zu erhalten
+            if original_ratio > target_ratio:
+                # Bild ist zu breit - an den Seiten beschneiden
+                new_width = int(original_height * target_ratio)
+                left = (original_width - new_width) // 2
+                right = left + new_width
+                img = img.crop((left, 0, right, original_height))
+                print(f"✂️ Seitlich beschnitten: {new_width}x{original_height}px")
+            elif original_ratio < target_ratio:
+                # Bild ist zu hoch - oben/unten beschneiden  
+                new_height = int(original_width / target_ratio)
+                top = (original_height - new_height) // 2
+                bottom = top + new_height
+                img = img.crop((0, top, original_width, bottom))
+                print(f"✂️ Vertikal beschnitten: {original_width}x{new_height}px")
+            else:
+                print("✅ Seitenverhältnis bereits korrekt")
+            
+            # Auf finale Größe skalieren mit hochwertiger Interpolation
+            img = img.resize(target_size, Image.Resampling.LANCZOS)
+            print(f"🔧 Skaliert auf: {img.size[0]}x{img.size[1]}px")
+            
+            # In RGB konvertieren falls nötig (für JPEG)
+            if img.mode in ('RGBA', 'P', 'LA'):
+                # Weißer Hintergrund für Transparenz
+                background = Image.new('RGB', img.size, (255, 255, 255))
+                if img.mode == 'P':
+                    img = img.convert('RGBA')
+                background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+                img = background
+                print("🎨 RGB-Konvertierung mit weißem Hintergrund")
+            elif img.mode != 'RGB':
+                img = img.convert('RGB')
+                print("🎨 RGB-Konvertierung")
+            
+            # DPI für Druckqualität setzen (300 DPI)
+            dpi = (300, 300)
+            
+            # Optimierte JPEG-Einstellungen für Druck
+            save_kwargs = {
+                'format': 'JPEG',
+                'quality': 95,  # Höhere Qualität für Druck
+                'optimize': True,
+                'dpi': dpi,
+                'progressive': True,  # Progressive JPEG für bessere Kompression
+                'subsampling': 0,  # Keine Farbunterabtastung für beste Qualität
+            }
+            
+            # Bild speichern
+            img.save(self.profile_picture.path, **save_kwargs)
+            
+            # Erfolgsmeldung
+            print(f"✅ Passbild erstellt für {self.full_name}:")
+            print(f"   📐 Größe: {target_width}x{target_height}px (Hochformat)")
+            print(f"   🖨️ DPI: {dpi[0]}")
+            print(f"   📁 Format: JPEG (95% Qualität)")
+            print(f"   🎯 Bereit für Dienstausweis-Druck")
+            
+    except Exception as e:
+        print(f"❌ Fehler bei Bildverarbeitung für {self}: {str(e)}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Bildverarbeitung fehlgeschlagen für Mitglied {self.pk}: {str(e)}")
 
     def get_image_info(self):
         """
