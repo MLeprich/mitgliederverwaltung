@@ -24,6 +24,12 @@ urlpatterns = [
     path('import/', views.import_data, name='import_data'),
     path('export/', views.export_data, name='export_data'),
     path('download-template/', views.download_template, name='download_template'),
+    path('export-cardpresso/', views.export_cardpresso_db, name='export_cardpresso_db'),
+    
+    # Bildzuweisung
+    path('image-assignment/', views.image_assignment, name='image_assignment'),
+    path('api/search-members/', views.search_members_api, name='search_members_api'),
+    path('api/assign-image/', views.assign_image_api, name='assign_image_api'),
     
     # ✨ NEUE AUSWEIS-ERSTELLUNG URLS
     path('cards/create/', views.card_creation_list, name='card_creation_list'),
@@ -32,4 +38,6 @@ urlpatterns = [
     path('cards/check/<int:pk>/', views.check_member_eligibility, name='check_member_eligibility'),
     path('cardpresso-status/', views.cardpresso_status, name='cardpresso_status'),
     path('create-cardpresso-manual/', views.create_cardpresso_manual, name='create_cardpresso_manual'),
+    path('download-cardpresso/', views.download_cardpresso_zip, name='download_cardpresso_zip'),
+    path('export-cardpresso-selected/', views.export_cardpresso_selected, name='export_cardpresso_selected'),
 ]

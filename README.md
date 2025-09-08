@@ -40,6 +40,14 @@ Ein Django-basiertes Web-Dashboard für die Verwaltung von Mitgliederdaten zur E
 ![Webcam Feature](docs/Mitglieder%20Hinzufuegen.PNG)
 *Echte Webcam-Integration: Live-Preview → Foto aufnehmen → Automatische Optimierung*
 
+### 🖼️ NEU: Bildzuweisung (Bulk-Upload)
+- **Massenupload von Bildern** per Drag & Drop oder Dateiauswahl
+- **Drei Vorschaugrößen** wählbar (Thumbnail, Klein, Groß)
+- **Live-Mitarbeitersuche** beim Zuweisen (Name, Personalnummer, Ausweisnummer)
+- **Übersichtliche Fortschrittsanzeige** mit Statistiken
+- **Warnung bei vorhandenen Bildern** bevor Überschreibung
+- **Optimiert für große Bildmengen** (z.B. nach Fototerminen)
+
 ### 🖼️ Bildverarbeitung
 - **Automatische EXIF-Orientierung** Korrektur
 - **Professionelle Druckqualität** (JPEG, 95% Qualität, 300 DPI)
@@ -86,6 +94,14 @@ Das System ist speziell für die Erstellung von professionellen Dienstausweisen 
 - **🖨️ Druckoptimierung**: 267x400 Pixel bei 300 DPI für gestochen scharfe Ausdrucke
 - **🔄 EXIF-Korrektur**: Automatische Orientierung unabhängig von der Kamera-Position
 - **⚡ Live-Preview**: Sofortiges visuelles Feedback vor der Aufnahme
+
+### 📸 Bildzuweisung für effiziente Fototermine
+Optimiert für die Verarbeitung von Fototerminen mit mehreren Mitarbeitern:
+
+- **🚀 Bulk-Upload**: Alle Fotos eines Termins auf einmal hochladen
+- **🔍 Intelligente Suche**: Schnelles Finden von Mitarbeitern über Name oder Nummer
+- **📊 Fortschrittsverfolgung**: Immer wissen, wie viele Bilder noch zugewiesen werden müssen
+- **⚠️ Duplikat-Warnung**: Verhindert versehentliches Überschreiben vorhandener Bilder
 
 ### 📊 Intelligente Mitgliederverwaltung
 Entwickelt für Feuerwehren und öffentliche Einrichtungen:

@@ -23,6 +23,11 @@ from PIL import Image
 from .models import Member
 from .forms import MemberForm, ImportForm
 from django.db import transaction
+import zipfile
+import shutil
+from django.http import FileResponse, HttpResponse
+import sqlite3
+from .views_image_assignment import image_assignment, search_members_api, assign_image_api
 
 logger = logging.getLogger(__name__)
 
@@ -712,6 +717,249 @@ def download_template(request):
     writer.writerows(template_data)
     
     return response
+
+@login_required
+def export_cardpresso_selected(request):
+    """
+    Exportiert ausgewählte Mitglieder als CardPresso ZIP - VEREINFACHT
+    """
+    if request.method != 'POST':
+        messages.error(request, 'Ungültige Anfrage.')
+        return redirect('members:card_creation_list')
+    
+    # Hole ausgewählte Mitglieder-IDs
+    selected_ids = request.POST.getlist('selected_members[]')
+    
+    if not selected_ids:
+        messages.error(request, 'Keine Mitglieder ausgewählt.')
+        return redirect('members:card_creation_list')
+    
+    try:
+        # Lade Mitglieder
+        members = Member.objects.filter(
+            id__in=selected_ids,
+            is_active=True,
+            profile_picture__isnull=False
+        ).exclude(profile_picture__exact='')
+        
+        if not members.exists():
+            messages.error(request, 'Keine gültigen Mitglieder gefunden.')
+            return redirect('members:card_creation_list')
+        
+        # Erstelle temporäre Verzeichnisse
+        temp_dir = tempfile.mkdtemp()
+        cardpresso_dir = os.path.join(temp_dir, 'cardpresso_export')
+        database_dir = os.path.join(cardpresso_dir, 'database')
+        images_dir = os.path.join(cardpresso_dir, 'images')
+        
+        os.makedirs(database_dir, exist_ok=True)
+        os.makedirs(images_dir, exist_ok=True)
+        
+        # SQLite Datenbank erstellen
+        db_path = os.path.join(database_dir, 'cardpresso.sqlite')
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Tabelle erstellen mit ALLEN wichtigen Feldern
+        cursor.execute('''
+            CREATE TABLE members (
+                id INTEGER PRIMARY KEY,
+                personalnummer TEXT,
+                vorname TEXT,
+                nachname TEXT,
+                vollname TEXT,
+                geburtsdatum TEXT,
+                ausweisnummer TEXT,
+                kartenprefix TEXT,
+                kartennummer TEXT,
+                ausstellungsdatum TEXT,
+                gueltig_bis TEXT,
+                mitgliedertyp TEXT,
+                aktiv TEXT,
+                photo TEXT
+            )
+        ''')
+        
+        # Mitglieder exportieren
+        foto_count = 0
+        for member in members:
+            photo_name = ""
+            
+            # Foto kopieren
+            if member.profile_picture and os.path.exists(member.profile_picture.path):
+                original_filename = os.path.basename(member.profile_picture.path)
+                photo_name = os.path.splitext(original_filename)[0]
+                
+                try:
+                    shutil.copy2(member.profile_picture.path, 
+                                os.path.join(images_dir, original_filename))
+                    foto_count += 1
+                except Exception as e:
+                    print(f"Fehler beim Kopieren: {e}")
+            
+            # In DB einfügen mit ALLEN Feldern
+            vollname = f"{member.first_name or ''} {member.last_name or ''}".strip()
+            ausweisnummer = f"{member.card_number_prefix or ''}{member.card_number or ''}".strip()
+            
+            cursor.execute('''
+                INSERT INTO members 
+                (id, personalnummer, vorname, nachname, vollname, geburtsdatum,
+                 ausweisnummer, kartenprefix, kartennummer, ausstellungsdatum, 
+                 gueltig_bis, mitgliedertyp, aktiv, photo)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                member.id,
+                member.personnel_number or '',
+                member.first_name or '',
+                member.last_name or '',
+                vollname,
+                member.birth_date.strftime('%d.%m.%Y') if member.birth_date else '',
+                ausweisnummer,
+                member.card_number_prefix or '',
+                member.card_number or '',
+                member.issued_date.strftime('%d.%m.%Y') if member.issued_date else '',
+                member.valid_until.strftime('%d.%m.%Y') if member.valid_until else '',
+                member.get_member_type_display() if hasattr(member, 'get_member_type_display') else member.member_type,
+                'JA' if member.is_active else 'NEIN',
+                photo_name
+            ))
+        
+        conn.commit()
+        conn.close()
+        
+        # ZIP-Archiv erstellen
+        zip_filename = f'cardpresso_{datetime.now().strftime("%Y%m%d_%H%M%S")}.zip'
+        zip_path = os.path.join(temp_dir, zip_filename)
+        
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for root, dirs, files in os.walk(cardpresso_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, temp_dir)
+                    zipf.write(file_path, arcname)
+        
+        # Datei lesen und Response erstellen
+        with open(zip_path, 'rb') as f:
+            zip_data = f.read()
+        
+        # Aufräumen
+        shutil.rmtree(temp_dir)
+        
+        # HTTP Response mit ZIP-Datei
+        response = HttpResponse(zip_data, content_type='application/zip')
+        response['Content-Disposition'] = f'attachment; filename="{zip_filename}"'
+        response['Content-Length'] = len(zip_data)
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"CardPresso Export Fehler: {str(e)}")
+        messages.error(request, f'Fehler beim Export: {str(e)}')
+        return redirect('members:card_creation_list')
+
+@login_required
+def download_cardpresso_zip(request):
+    """Download der in der Session gespeicherten CardPresso ZIP-Datei"""
+    zip_path = request.session.get('cardpresso_zip_path')
+    zip_filename = request.session.get('cardpresso_zip_filename')
+    
+    if not zip_path or not os.path.exists(zip_path):
+        messages.error(request, 'Keine CardPresso-Datei zum Download verfügbar.')
+        return redirect('members:card_creation_list')
+    
+    try:
+        response = FileResponse(
+            open(zip_path, 'rb'),
+            content_type='application/zip'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{zip_filename}"'
+        
+        # Session-Daten löschen nach Download
+        del request.session['cardpresso_zip_path']
+        del request.session['cardpresso_zip_filename']
+        if 'cardpresso_member_count' in request.session:
+            del request.session['cardpresso_member_count']
+        if 'cardpresso_foto_count' in request.session:
+            del request.session['cardpresso_foto_count']
+        
+        # Temporäre Datei nach Download löschen
+        def cleanup():
+            try:
+                if os.path.exists(zip_path):
+                    os.remove(zip_path)
+                    # Auch das temp-Verzeichnis löschen
+                    temp_dir = os.path.dirname(zip_path)
+                    if temp_dir and os.path.exists(temp_dir):
+                        shutil.rmtree(temp_dir)
+            except:
+                pass
+        
+        response.close_callback = cleanup
+        return response
+        
+    except Exception as e:
+        logger.error(f"Fehler beim CardPresso-Download: {str(e)}")
+        messages.error(request, f'Fehler beim Download: {str(e)}')
+        return redirect('members:card_creation_list')
+
+@login_required
+def export_cardpresso_db(request):
+    """Erstellt CardPresso-Datenbank und bietet sie als ZIP-Download an"""
+    try:
+        # Temporäre Verzeichnisse erstellen
+        temp_dir = tempfile.mkdtemp()
+        cardpresso_dir = os.path.join(temp_dir, 'cardpresso_export')
+        database_dir = os.path.join(cardpresso_dir, 'database')
+        images_dir = os.path.join(cardpresso_dir, 'images')
+        
+        os.makedirs(database_dir, exist_ok=True)
+        os.makedirs(images_dir, exist_ok=True)
+        
+        # Management Command ausführen
+        from io import StringIO
+        from django.core.management import call_command
+        
+        out = StringIO()
+        call_command('create_cardpresso_db', 
+                    output_dir=cardpresso_dir,
+                    clean=True,
+                    stdout=out)
+        
+        # ZIP-Archiv erstellen
+        zip_filename = f'cardpresso_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.zip'
+        zip_path = os.path.join(temp_dir, zip_filename)
+        
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # Alle Dateien zum ZIP hinzufügen
+            for root, dirs, files in os.walk(cardpresso_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, temp_dir)
+                    zipf.write(file_path, arcname)
+        
+        # Datei zum Download anbieten
+        response = FileResponse(
+            open(zip_path, 'rb'),
+            content_type='application/zip'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{zip_filename}"'
+        
+        # Aufräumen nach dem Response (wird automatisch gemacht)
+        def cleanup():
+            try:
+                shutil.rmtree(temp_dir)
+            except:
+                pass
+        
+        response.close_callback = cleanup
+        
+        messages.success(request, 'CardPresso-Export wurde erfolgreich erstellt!')
+        return response
+        
+    except Exception as e:
+        logger.error(f"Fehler beim CardPresso-Export: {str(e)}")
+        messages.error(request, f'Fehler beim Export: {str(e)}')
+        return redirect('members:dashboard')
     
 @login_required
 def member_list_valid(request):
@@ -975,7 +1223,8 @@ def card_creation_process(request):
         return redirect('members:card_creation_list')
     
     selected_member_ids = request.POST.getlist('selected_members[]')
-    create_cardpresso = request.POST.get('create_cardpresso', False)  # Neuer Parameter
+    # CardPresso wird erstellt wenn Checkbox vorhanden (standard: checked)
+    create_cardpresso = 'create_cardpresso' in request.POST
     
     if not selected_member_ids:
         messages.error(request, 'Bitte wählen Sie mindestens ein Mitglied aus.')
@@ -1033,47 +1282,145 @@ def card_creation_process(request):
             )
         
         # Cardpresso-Datenbank erstellen wenn gewünscht
-        if create_cardpresso or request.POST.get('auto_cardpresso', True):  # Auto-Erstellung
+        print(f"DEBUG: CardPresso Option: {create_cardpresso}, POST data: {request.POST.get('create_cardpresso')}")
+        logger.info(f"CardPresso Option: {create_cardpresso}, POST data: {request.POST.get('create_cardpresso')}")
+        messages.info(request, f"CardPresso-Export: {'Ja' if create_cardpresso else 'Nein'}")
+        if create_cardpresso:
             try:
-                logger.info("Starte Cardpresso-Datenbank Erstellung...")
+                logger.info("Starte Cardpresso-Datenbank Erstellung für ausgewählte Mitglieder...")
                 
-                # Eindeutiges Ausgabeverzeichnis erstellen
-                timestamp = issue_date.strftime("%Y%m%d_%H%M%S")
-                output_dir = f"cardpresso_export_{timestamp}"
+                # Temporäre Verzeichnisse erstellen
+                temp_dir = tempfile.mkdtemp()
+                cardpresso_dir = os.path.join(temp_dir, 'cardpresso_export')
+                database_dir = os.path.join(cardpresso_dir, 'database')
+                images_dir = os.path.join(cardpresso_dir, 'images')
                 
-                # Management Command aufrufen
-                call_command(
-                    'create_cardpresso_db',
-                    output_dir=output_dir,
-                    clean=True,
-                    verbosity=1,  # Logging-Level
-                    stdout=open(os.devnull, 'w'),  # Output unterdrücken für Web-Interface
-                )
+                os.makedirs(database_dir, exist_ok=True)
+                os.makedirs(images_dir, exist_ok=True)
                 
-                cardpresso_path = os.path.abspath(output_dir)
+                # SQLite-Datenbank erstellen
+                db_path = os.path.join(database_dir, 'cardpresso_selected.sqlite')
+                
+                import sqlite3
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                
+                # Tabelle erstellen
+                cursor.execute('''
+                    CREATE TABLE members (
+                        id INTEGER PRIMARY KEY,
+                        personalnummer TEXT,
+                        vorname TEXT,
+                        nachname TEXT,
+                        vollname TEXT,
+                        telefon TEXT,
+                        geburtsdatum TEXT,
+                        ausweisnummer TEXT,
+                        kartenprefix TEXT,
+                        kartennummer TEXT,
+                        ausstellungsdatum TEXT,
+                        gueltig_bis TEXT,
+                        mitgliedertyp TEXT,
+                        aktiv TEXT,
+                        photo TEXT
+                    )
+                ''')
+                
+                # Nur die ausgewählten Mitglieder exportieren
+                foto_count = 0
+                for member in updated_members:
+                    photo_name = ""
+                    
+                    # Foto kopieren
+                    if member.profile_picture and os.path.exists(member.profile_picture.path):
+                        original_filename = os.path.basename(member.profile_picture.path)
+                        photo_name = os.path.splitext(original_filename)[0]
+                        
+                        source_path = member.profile_picture.path
+                        target_path = os.path.join(images_dir, original_filename)
+                        
+                        try:
+                            shutil.copy2(source_path, target_path)
+                            foto_count += 1
+                        except Exception as e:
+                            logger.error(f"Fehler beim Kopieren des Fotos: {e}")
+                            photo_name = ""
+                    
+                    # Daten in SQLite einfügen
+                    ausweisnummer = f"{member.card_number_prefix or ''}{member.card_number or ''}".strip()
+                    vollname = f"{member.first_name or ''} {member.last_name or ''}".strip()
+                    
+                    cursor.execute('''
+                        INSERT INTO members 
+                        (id, personalnummer, vorname, nachname, vollname, telefon, geburtsdatum,
+                         ausweisnummer, kartenprefix, kartennummer, ausstellungsdatum, gueltig_bis,
+                         mitgliedertyp, aktiv, photo)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        member.id,
+                        member.personnel_number or '',
+                        member.first_name or '',
+                        member.last_name or '',
+                        vollname,
+                        '',  # Telefon (nicht im Model)
+                        member.birth_date.strftime('%d.%m.%Y') if member.birth_date else '',
+                        ausweisnummer,
+                        member.card_number_prefix or '',
+                        member.card_number or '',
+                        member.issued_date.strftime('%d.%m.%Y') if member.issued_date else '',
+                        member.valid_until.strftime('%d.%m.%Y') if member.valid_until else '',
+                        member.get_member_type_display() if hasattr(member, 'get_member_type_display') else member.member_type,
+                        'JA' if member.is_active else 'NEIN',
+                        photo_name
+                    ))
+                
+                conn.commit()
+                conn.close()
+                
+                # ZIP-Archiv erstellen
+                zip_filename = f'cardpresso_ausweise_{datetime.now().strftime("%Y%m%d_%H%M%S")}.zip'
+                zip_path = os.path.join(temp_dir, zip_filename)
+                
+                with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    for root, dirs, files in os.walk(cardpresso_dir):
+                        for file in files:
+                            file_path = os.path.join(root, file)
+                            arcname = os.path.relpath(file_path, temp_dir)
+                            zipf.write(file_path, arcname)
+                
+                # Als Session-Variable speichern für Download
+                request.session['cardpresso_zip_path'] = zip_path
+                request.session['cardpresso_zip_filename'] = zip_filename
+                request.session['cardpresso_member_count'] = updated_count
+                request.session['cardpresso_foto_count'] = foto_count
+                request.session.save()  # Explizit speichern
+                
                 cardpresso_success = True
+                cardpresso_path = zip_path
                 
-                logger.info(f"Cardpresso-Datenbank erfolgreich erstellt: {cardpresso_path}")
+                logger.info(f"Cardpresso-ZIP erstellt: {zip_path}")
+                print(f"DEBUG: ZIP erstellt: {zip_path}, existiert: {os.path.exists(zip_path)}")
                 
                 messages.success(
                     request,
-                    f'✅ Cardpresso-Datenbank wurde erfolgreich erstellt!\n'
-                    f'📁 Pfad: {cardpresso_path}\n'
-                    f'💾 {updated_count} Mitglieder exportiert'
+                    f'Cardpresso-Datenbank wurde erfolgreich erstellt! '
+                    f'{updated_count} Mitglieder und {foto_count} Fotos exportiert.'
                 )
                 
-            except CommandError as e:
-                logger.error(f"Cardpresso Command Fehler: {e}")
+                # Direkt die Datei zurückgeben statt Weiterleitung
+                from django.http import FileResponse
+                response = FileResponse(
+                    open(zip_path, 'rb'),
+                    content_type='application/zip'
+                )
+                response['Content-Disposition'] = f'attachment; filename="{zip_filename}"'
+                return response
+                
+            except Exception as e:
+                logger.error(f"Cardpresso Export Fehler: {e}")
                 messages.warning(
                     request,
                     f'Ausweise wurden erstellt, aber Cardpresso-Export fehlgeschlagen: {str(e)}'
-                )
-                
-            except Exception as e:
-                logger.error(f"Unerwarteter Cardpresso Fehler: {e}")
-                messages.warning(
-                    request,
-                    f'Ausweise wurden erstellt, aber Cardpresso-Export hatte Probleme: {str(e)}'
                 )
         
         # Zur Übersicht weiterleiten mit zusätzlichen Parametern
@@ -1112,18 +1459,14 @@ def card_creation_summary(request):
         
         # Cardpresso-Info vorbereiten
         cardpresso_info = None
-        if cardpresso_path and os.path.exists(cardpresso_path):
-            # Statistiken aus dem Verzeichnis lesen
-            db_path = os.path.join(cardpresso_path, 'database', 'cardpresso_indexed.sqlite')
-            images_path = os.path.join(cardpresso_path, 'images')
-            
+        # Prüfe ob ZIP in Session gespeichert ist
+        if request.session.get('cardpresso_zip_path'):
             cardpresso_info = {
-                'path': cardpresso_path,
-                'db_path': db_path,
-                'images_path': images_path,
-                'db_exists': os.path.exists(db_path),
-                'images_count': len([f for f in os.listdir(images_path) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]) if os.path.exists(images_path) else 0,
-                'ready_for_cardpresso': os.path.exists(db_path)
+                'path': request.session.get('cardpresso_zip_path'),
+                'is_zip': True,
+                'member_count': request.session.get('cardpresso_member_count', 0),
+                'foto_count': request.session.get('cardpresso_foto_count', 0),
+                'ready_for_cardpresso': True
             }
         
         context = {
